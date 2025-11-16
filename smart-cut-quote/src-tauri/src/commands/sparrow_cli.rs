@@ -38,7 +38,7 @@ pub async fn run_nesting(
         // Development mode: use relative path
         std::env::current_dir()
             .map_err(|e| format!("Failed to get current directory: {}", e))?
-            .join("../binaries/sparrow-cli.exe")
+            .join("../../binaries/sparrow-cli.exe")
     };
 
     if !exe_path.exists() {

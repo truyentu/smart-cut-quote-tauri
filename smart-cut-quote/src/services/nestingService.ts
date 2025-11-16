@@ -96,7 +96,7 @@ export async function runNesting(
 async function parseNestingResult(jsonPath: string): Promise<NestingResultType | null> {
   try {
     // Read JSON file using Tauri fs API
-    const { readTextFile } = await import('@tauri-apps/api/fs');
+    const { readTextFile } = await import('@tauri-apps/plugin-fs');
     const content = await readTextFile(jsonPath);
     const data = JSON.parse(content);
 

@@ -34,8 +34,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../binaries/dxf-converter.exe",
-      "../binaries/sparrow-cli.exe"
+      "../../binaries/dxf-converter.exe",
+      "../../binaries/sparrow-cli.exe"
     ]
   }
 }

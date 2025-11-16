@@ -38,7 +38,7 @@ pub async fn convert_dxf_to_json(
         // Development mode: use relative path
         std::env::current_dir()
             .map_err(|e| format!("Failed to get current directory: {}", e))?
-            .join("../binaries/dxf-converter.exe")
+            .join("../../binaries/dxf-converter.exe")
     };
 
     if !exe_path.exists() {

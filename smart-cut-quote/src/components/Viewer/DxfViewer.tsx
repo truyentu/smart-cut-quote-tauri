@@ -7,7 +7,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, CircularProgress, Alert, Typography } from '@mui/material';
-import { readTextFile } from '@tauri-apps/api/fs';
+import { readTextFile } from '@tauri-apps/plugin-fs';
 import DxfParser from 'dxf-parser';
 import { useQuoteStore } from '../../stores/quoteStore';
 

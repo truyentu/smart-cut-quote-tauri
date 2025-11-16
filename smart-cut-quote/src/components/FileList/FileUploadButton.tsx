@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Button, CircularProgress } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { open } from '@tauri-apps/api/dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import { useQuoteStore } from '../../stores/quoteStore';
 import { DxfFile } from '../../types/quote';
 

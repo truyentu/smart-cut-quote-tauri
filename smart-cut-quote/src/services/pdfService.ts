@@ -5,8 +5,8 @@
  */
 
 import jsPDF from 'jspdf';
-import { save } from '@tauri-apps/api/dialog';
-import { writeBinaryFile, readTextFile } from '@tauri-apps/api/fs';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { DxfFile, QuoteSummary } from '../types/quote';
 
 export interface PdfGenerationOptions {
@@ -204,7 +204,7 @@ export async function generateAndSavePdf(options: PdfGenerationOptions): Promise
     }
 
     // Write PDF file
-    await writeBinaryFile(filePath, pdfUint8Array);
+    await writeFile(filePath, pdfUint8Array);
 
     return true;
   } catch (error) {
