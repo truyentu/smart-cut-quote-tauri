@@ -38,12 +38,11 @@ export default function StatisticsChart() {
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-              <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-              <Tooltip />
+              <YAxis label={{ value: 'Volume (USD)', angle: -90, position: 'insideLeft' }} />
+              <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
               <Legend />
-              <Bar yAxisId="left" dataKey="quotes" fill="#8884d8" name="Quotes" />
-              <Bar yAxisId="right" dataKey="revenue" fill="#82ca9d" name="Revenue ($)" />
+              <Bar dataKey="quotes" fill="#1976d2" name="Sales Volume" />
+              <Bar dataKey="revenue" fill="#dc004e" name="Revenue" />
             </BarChart>
           </ResponsiveContainer>
         </Box>
