@@ -19,13 +19,13 @@ import { MOCK_CHART_DATA } from '../../data/mockData';
 
 export default function StatisticsChart() {
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
+    <Card sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" gutterBottom>
           Monthly Statistics
         </Typography>
 
-        <Box sx={{ mt: 2, height: 300 }}>
+        <Box sx={{ mt: 2, flexGrow: 1, minHeight: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={MOCK_CHART_DATA}

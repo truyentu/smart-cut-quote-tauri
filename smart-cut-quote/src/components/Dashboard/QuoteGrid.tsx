@@ -26,13 +26,13 @@ interface QuoteGridProps {
 
 export default function QuoteGrid({ title, data }: QuoteGridProps) {
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
+    <Card sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" gutterBottom>
           {title}
         </Typography>
 
-        <TableContainer sx={{ mt: 2 }}>
+        <TableContainer sx={{ mt: 2, flexGrow: 1, overflow: 'auto' }}>
           <Table size="small">
             <TableHead>
               <TableRow>
