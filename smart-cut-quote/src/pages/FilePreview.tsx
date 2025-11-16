@@ -98,7 +98,7 @@ export default function FilePreview() {
               <Typography variant="h6" gutterBottom>
                 {selectedFile.name}
               </Typography>
-              <DxfViewer filePath={selectedFile.path} />
+              <DxfViewer filePath={selectedFile.path} fileId={selectedFile.id} />
             </>
           ) : (
             <Box
