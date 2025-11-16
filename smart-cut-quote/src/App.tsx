@@ -1,50 +1,68 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+/**
+ * Main App component
+ * Sets up routing and application layout
+ */
+
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import AppLayout from './components/Layout/AppLayout';
+
+// Import pages
+import Dashboard from './pages/Dashboard';
+import ClientSelection from './pages/ClientSelection';
+import FileUpload from './pages/FileUpload';
+import FilePreview from './pages/FilePreview';
+import FileHealing from './pages/FileHealing';
+import PartConfig from './pages/PartConfig';
+import Nesting from './pages/Nesting';
+import Summary from './pages/Summary';
+import PdfExport from './pages/PdfExport';
+
+// Create MUI theme
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+  },
+  typography: {
+    fontFamily: [
+      '-apple-system',
+      'BlinkMacSystemFont',
+      '"Segoe UI"',
+      'Roboto',
+      '"Helvetica Neue"',
+      'Arial',
+      'sans-serif',
+    ].join(','),
+  },
+});
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/client" element={<ClientSelection />} />
+            <Route path="/upload" element={<FileUpload />} />
+            <Route path="/preview" element={<FilePreview />} />
+            <Route path="/healing" element={<FileHealing />} />
+            <Route path="/config" element={<PartConfig />} />
+            <Route path="/nesting" element={<Nesting />} />
+            <Route path="/summary" element={<Summary />} />
+            <Route path="/export" element={<PdfExport />} />
+          </Routes>
+        </AppLayout>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
