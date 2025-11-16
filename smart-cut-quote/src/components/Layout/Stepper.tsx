@@ -16,7 +16,6 @@ import { useNavigate } from 'react-router-dom';
 const steps = [
   { label: 'Dashboard', path: '/' },
   { label: 'Upload', path: '/upload' },
-  { label: 'Preview', path: '/preview' },
   { label: 'Healing', path: '/healing' },
   { label: 'Config', path: '/config' },
   { label: 'Nesting', path: '/nesting' },
