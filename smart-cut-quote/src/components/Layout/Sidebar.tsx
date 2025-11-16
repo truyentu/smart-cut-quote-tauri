@@ -15,7 +15,6 @@ import {
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import PreviewIcon from '@mui/icons-material/Preview';
 import HealingIcon from '@mui/icons-material/Healing';
 import SettingsIcon from '@mui/icons-material/Settings';
 import GridOnIcon from '@mui/icons-material/GridOn';
@@ -27,12 +26,11 @@ import { useQuoteStore } from '../../stores/quoteStore';
 const menuItems = [
   { id: 0, label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { id: 1, label: 'File Upload', icon: <UploadFileIcon />, path: '/upload' },
-  { id: 2, label: 'File Preview', icon: <PreviewIcon />, path: '/preview' },
-  { id: 3, label: 'File Healing', icon: <HealingIcon />, path: '/healing' },
-  { id: 4, label: 'Part Config', icon: <SettingsIcon />, path: '/config' },
-  { id: 5, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
-  { id: 6, label: 'Summary', icon: <SummarizeIcon />, path: '/summary' },
-  { id: 7, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
+  { id: 2, label: 'File Healing', icon: <HealingIcon />, path: '/healing' },
+  { id: 3, label: 'Part Config', icon: <SettingsIcon />, path: '/config' },
+  { id: 4, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
+  { id: 5, label: 'Summary', icon: <SummarizeIcon />, path: '/summary' },
+  { id: 6, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
 ];
 
 export default function Sidebar() {

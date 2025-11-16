@@ -21,7 +21,12 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useQuoteStore } from '../../stores/quoteStore';
 
-export default function FileListGrid() {
+interface FileListGridProps {
+  selectedFileId?: string | null;
+  onSelectFile?: (fileId: string) => void;
+}
+
+export default function FileListGrid({ selectedFileId, onSelectFile }: FileListGridProps) {
   const files = useQuoteStore((state) => state.files);
   const removeFile = useQuoteStore((state) => state.removeFile);
   const updateFile = useQuoteStore((state) => state.updateFile);
@@ -30,6 +35,12 @@ export default function FileListGrid() {
     const quantity = parseInt(newQuantity, 10);
     if (!isNaN(quantity) && quantity > 0) {
       updateFile(fileId, { quantity });
+    }
+  };
+
+  const handleRowClick = (fileId: string) => {
+    if (onSelectFile) {
+      onSelectFile(fileId);
     }
   };
 
@@ -56,25 +67,37 @@ export default function FileListGrid() {
 
   return (
     <TableContainer component={Paper}>
-      <Table>
+      <Table size="small">
         <TableHead>
           <TableRow>
             <TableCell><strong>File Name</strong></TableCell>
-            <TableCell align="center"><strong>Quantity</strong></TableCell>
-            <TableCell><strong>Material</strong></TableCell>
-            <TableCell><strong>Machine</strong></TableCell>
+            <TableCell align="center"><strong>Qty</strong></TableCell>
             <TableCell align="center"><strong>Status</strong></TableCell>
             <TableCell align="center"><strong>Actions</strong></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {files.map((file) => (
-            <TableRow key={file.id} hover>
+            <TableRow
+              key={file.id}
+              hover
+              onClick={() => handleRowClick(file.id)}
+              selected={selectedFileId === file.id}
+              sx={{
+                cursor: 'pointer',
+                '&.Mui-selected': {
+                  backgroundColor: 'action.selected',
+                },
+                '&.Mui-selected:hover': {
+                  backgroundColor: 'action.selected',
+                },
+              }}
+            >
               <TableCell>
                 <Box>
                   <Typography variant="body2">{file.name}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {file.path}
+                    {file.path.length > 50 ? `...${file.path.slice(-50)}` : file.path}
                   </Typography>
                 </Box>
               </TableCell>
@@ -83,29 +106,13 @@ export default function FileListGrid() {
                   type="number"
                   size="small"
                   value={file.quantity}
-                  onChange={(e) => handleQuantityChange(file.id, e.target.value)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleQuantityChange(file.id, e.target.value);
+                  }}
+                  onClick={(e) => e.stopPropagation()}
                   inputProps={{ min: 1, style: { textAlign: 'center', width: '60px' } }}
                 />
-              </TableCell>
-              <TableCell>
-                {file.material ? (
-                  <Typography variant="body2">
-                    {file.material.name} - {file.material.thickness}mm
-                  </Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Not set
-                  </Typography>
-                )}
-              </TableCell>
-              <TableCell>
-                {file.machine ? (
-                  <Typography variant="body2">{file.machine}</Typography>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    Not set
-                  </Typography>
-                )}
               </TableCell>
               <TableCell align="center">
                 <Chip
@@ -117,7 +124,10 @@ export default function FileListGrid() {
               <TableCell align="center">
                 <IconButton
                   color="error"
-                  onClick={() => removeFile(file.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeFile(file.id);
+                  }}
                   title="Delete file"
                   size="small"
                 >

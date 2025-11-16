@@ -58,7 +58,12 @@ export default function DxfViewer({ filePath, fileId }: DxfViewerProps) {
       // Calculate metadata (cutLength, pierceCount, etc.)
       if (fileId && dxf.entities) {
         const metadata = calculateMetadata(dxf.entities);
-        updateFile(fileId, { metadata });
+        const isClosed = validateClosedContours(dxf.entities);
+
+        updateFile(fileId, {
+          metadata,
+          status: isClosed ? 'ok' : 'error'
+        });
       }
 
       // Render to canvas
@@ -68,6 +73,63 @@ export default function DxfViewer({ filePath, fileId }: DxfViewerProps) {
       setError(err.message || 'Failed to load DXF file');
       setLoading(false);
     }
+  };
+
+  const validateClosedContours = (entities: any[]): boolean => {
+    // Simple validation: check if entities form closed contours
+    let hasOpenContours = false;
+
+    entities.forEach((entity: any) => {
+      switch (entity.type) {
+        case 'CIRCLE':
+          // Circles are always closed
+          break;
+
+        case 'ARC':
+          // Arcs are open unless they form a complete circle
+          if (entity.startAngle !== undefined && entity.endAngle !== undefined) {
+            const angleDiff = Math.abs(entity.endAngle - entity.startAngle);
+            if (angleDiff < 359) {
+              hasOpenContours = true;
+            }
+          }
+          break;
+
+        case 'LWPOLYLINE':
+        case 'POLYLINE':
+          // Check if polyline is closed
+          if (!entity.shape) {
+            // Not closed - check if first and last vertices are the same
+            if (entity.vertices && entity.vertices.length > 2) {
+              const first = entity.vertices[0];
+              const last = entity.vertices[entity.vertices.length - 1];
+              const distance = Math.sqrt(
+                Math.pow(last.x - first.x, 2) + Math.pow(last.y - first.y, 2)
+              );
+              // If distance > 0.1mm, consider it open
+              if (distance > 0.1) {
+                hasOpenContours = true;
+              }
+            } else {
+              hasOpenContours = true;
+            }
+          }
+          break;
+
+        case 'LINE':
+          // Individual lines are considered open (unless they're part of a closed path)
+          // For simplicity, we'll mark them as potentially open
+          hasOpenContours = true;
+          break;
+
+        default:
+          // Unknown entity types are considered OK
+          break;
+      }
+    });
+
+    // Return true if all contours are closed (no open contours found)
+    return !hasOpenContours;
   };
 
   const calculateMetadata = (entities: any[]) => {
