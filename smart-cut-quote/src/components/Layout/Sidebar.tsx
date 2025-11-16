@@ -14,7 +14,6 @@ import {
   Divider
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import PersonIcon from '@mui/icons-material/Person';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import PreviewIcon from '@mui/icons-material/Preview';
 import HealingIcon from '@mui/icons-material/Healing';
@@ -27,14 +26,13 @@ import { useQuoteStore } from '../../stores/quoteStore';
 
 const menuItems = [
   { id: 0, label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  { id: 1, label: 'Client Selection', icon: <PersonIcon />, path: '/client' },
-  { id: 2, label: 'File Upload', icon: <UploadFileIcon />, path: '/upload' },
-  { id: 3, label: 'File Preview', icon: <PreviewIcon />, path: '/preview' },
-  { id: 4, label: 'File Healing', icon: <HealingIcon />, path: '/healing' },
-  { id: 5, label: 'Part Config', icon: <SettingsIcon />, path: '/config' },
-  { id: 6, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
-  { id: 7, label: 'Summary', icon: <SummarizeIcon />, path: '/summary' },
-  { id: 8, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
+  { id: 1, label: 'File Upload', icon: <UploadFileIcon />, path: '/upload' },
+  { id: 2, label: 'File Preview', icon: <PreviewIcon />, path: '/preview' },
+  { id: 3, label: 'File Healing', icon: <HealingIcon />, path: '/healing' },
+  { id: 4, label: 'Part Config', icon: <SettingsIcon />, path: '/config' },
+  { id: 5, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
+  { id: 6, label: 'Summary', icon: <SummarizeIcon />, path: '/summary' },
+  { id: 7, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
 ];
 
 export default function Sidebar() {
