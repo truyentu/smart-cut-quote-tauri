@@ -3,7 +3,7 @@
  * Materials and Machines for part configuration
  */
 
-import { Material, Machine } from '../types/quote';
+import { Material, Machine, Client } from '../types/quote';
 
 /**
  * Mock materials with various properties
@@ -92,5 +92,46 @@ export const MOCK_MACHINES: Machine[] = [
     hourlyRate: 120,
     maxSheetWidth: 3000,
     maxSheetHeight: 2000,
+  },
+];
+
+/**
+ * Mock clients for client selection
+ */
+export const MOCK_CLIENTS: Client[] = [
+  {
+    id: 'client-1',
+    name: 'John Smith',
+    company: 'ABC Manufacturing Co.',
+    email: 'john.smith@abcmfg.com',
+    phone: '+1 (555) 123-4567',
+  },
+  {
+    id: 'client-2',
+    name: 'Sarah Johnson',
+    company: 'TechParts Industries',
+    email: 'sarah.j@techparts.com',
+    phone: '+1 (555) 234-5678',
+  },
+  {
+    id: 'client-3',
+    name: 'Michael Chen',
+    company: 'Precision Engineering Ltd.',
+    email: 'm.chen@precision-eng.com',
+    phone: '+1 (555) 345-6789',
+  },
+  {
+    id: 'client-4',
+    name: 'Emily Rodriguez',
+    company: 'MetalWorks Solutions',
+    email: 'e.rodriguez@metalworks.com',
+    phone: '+1 (555) 456-7890',
+  },
+  {
+    id: 'client-5',
+    name: 'David Thompson',
+    company: 'Industrial Fabricators Inc.',
+    email: 'david.t@indfab.com',
+    phone: '+1 (555) 567-8901',
   },
 ];
