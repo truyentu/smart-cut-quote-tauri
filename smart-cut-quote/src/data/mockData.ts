@@ -147,6 +147,7 @@ export interface DashboardQuote {
   amount: number;
   status: 'Pending' | 'Accepted';
   date: string;
+  createdBy: string;
 }
 
 /**
@@ -160,7 +161,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'ABC Manufacturing Co.',
     amount: 2850.5,
     status: 'Pending',
-    date: '2025-11-10',
+    date: '10/11/2025',
+    createdBy: 'ADMIN',
   },
   {
     id: 'q-2',
@@ -169,7 +171,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'TechParts Industries',
     amount: 4200.0,
     status: 'Accepted',
-    date: '2025-11-12',
+    date: '12/11/2025',
+    createdBy: 'NS',
   },
   {
     id: 'q-3',
@@ -178,7 +181,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'Precision Engineering Ltd.',
     amount: 1750.25,
     status: 'Pending',
-    date: '2025-11-13',
+    date: '13/11/2025',
+    createdBy: 'ADMIN',
   },
   {
     id: 'q-4',
@@ -187,7 +191,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'MetalWorks Solutions',
     amount: 5600.0,
     status: 'Accepted',
-    date: '2025-11-14',
+    date: '14/11/2025',
+    createdBy: 'JD',
   },
   {
     id: 'q-5',
@@ -196,7 +201,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'Industrial Fabricators Inc.',
     amount: 3300.75,
     status: 'Pending',
-    date: '2025-11-15',
+    date: '15/11/2025',
+    createdBy: 'ADMIN',
   },
   {
     id: 'q-6',
@@ -205,7 +211,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'ABC Manufacturing Co.',
     amount: 1950.0,
     status: 'Accepted',
-    date: '2025-11-15',
+    date: '15/11/2025',
+    createdBy: 'NS',
   },
   {
     id: 'q-7',
@@ -214,7 +221,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'TechParts Industries',
     amount: 2400.5,
     status: 'Pending',
-    date: '2025-11-16',
+    date: '16/11/2025',
+    createdBy: 'ADMIN',
   },
   {
     id: 'q-8',
@@ -223,7 +231,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'Precision Engineering Ltd.',
     amount: 3800.0,
     status: 'Accepted',
-    date: '2025-11-16',
+    date: '16/11/2025',
+    createdBy: 'JD',
   },
   {
     id: 'q-9',
@@ -232,7 +241,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'MetalWorks Solutions',
     amount: 2100.25,
     status: 'Pending',
-    date: '2025-11-16',
+    date: '16/11/2025',
+    createdBy: 'NS',
   },
   {
     id: 'q-10',
@@ -241,7 +251,8 @@ export const MOCK_QUOTES: DashboardQuote[] = [
     company: 'Industrial Fabricators Inc.',
     amount: 4750.0,
     status: 'Accepted',
-    date: '2025-11-16',
+    date: '16/11/2025',
+    createdBy: 'ADMIN',
   },
 ];
 
