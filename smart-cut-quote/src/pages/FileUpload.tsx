@@ -4,19 +4,48 @@
  */
 
 import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import FileUploadButton from '../components/FileList/FileUploadButton';
+import FileListGrid from '../components/FileList/FileListGrid';
+import { useQuoteStore } from '../stores/quoteStore';
 
 export default function FileUpload() {
+  const navigate = useNavigate();
+  const files = useQuoteStore((state) => state.files);
+
+  const handleNext = () => {
+    if (files.length > 0) {
+      navigate('/preview');
+    }
+  };
+
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        File Upload
-      </Typography>
-      <Paper sx={{ p: 3, mt: 2 }}>
-        <Typography variant="body1">
-          File upload interface will be implemented here.
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">
+          File Upload
         </Typography>
-      </Paper>
+        <FileUploadButton />
+      </Box>
+
+      <Box sx={{ mb: 3 }}>
+        <FileListGrid />
+      </Box>
+
+      {files.length > 0 && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            endIcon={<ArrowForwardIcon />}
+            onClick={handleNext}
+          >
+            Next: Preview Files
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }
