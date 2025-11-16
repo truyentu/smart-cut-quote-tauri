@@ -57,13 +57,13 @@ const MOCK_TASKS: Task[] = [
 
 export default function TasksList() {
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
+    <Card sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Typography variant="h6" gutterBottom>
           Pending Tasks
         </Typography>
 
-        <List sx={{ mt: 1 }}>
+        <List sx={{ mt: 1, flexGrow: 1, overflow: 'auto' }}>
           {MOCK_TASKS.map((task, index) => (
             <React.Fragment key={task.id}>
               <ListItem dense>
