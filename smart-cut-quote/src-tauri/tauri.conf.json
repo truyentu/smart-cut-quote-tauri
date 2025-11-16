@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "smart-cut-quote",
+  "productName": "Smart Cut Quote",
   "version": "0.1.0",
   "identifier": "com.brand.smart-cut-quote",
   "build": {
@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "smart-cut-quote",
-        "width": 800,
-        "height": 600
+        "title": "Smart Cut Quote",
+        "width": 1400,
+        "height": 900,
+        "resizable": true,
+        "fullscreen": false
       }
     ],
     "security": {
@@ -30,6 +32,10 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "../binaries/dxf-converter.exe",
+      "../binaries/sparrow-cli.exe"
     ]
   }
 }
