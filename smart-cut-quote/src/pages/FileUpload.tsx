@@ -83,71 +83,73 @@ export default function FileUpload() {
   const selectedFile = files.find(f => f.id === selectedFileId);
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexShrink: 0 }}>
         <Typography variant="h4">File Upload & Preview</Typography>
         <FileUploadButton />
       </Box>
 
       {dragActive && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <Alert severity="info" sx={{ mb: 2, flexShrink: 0 }}>
           Drop DXF files here to upload
         </Alert>
       )}
 
-      <Grid container spacing={3}>
+      <Box sx={{ display: 'flex', gap: 3, flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Left column: File List */}
-        <Grid item xs={12} lg={5}>
-          <Paper sx={{ p: 2, height: '600px', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h6" gutterBottom>
-              Uploaded Files
-            </Typography>
-            <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
-              <FileListGrid
-                selectedFileId={selectedFileId}
-                onSelectFile={setSelectedFileId}
-              />
-            </Box>
-          </Paper>
-        </Grid>
+        <Box sx={{ flex: '0 0 42%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Typography variant="h6" gutterBottom sx={{ px: 2 }}>
+            Uploaded Files
+          </Typography>
+          <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <FileListGrid
+              selectedFileId={selectedFileId}
+              onSelectFile={setSelectedFileId}
+            />
+          </Box>
+        </Box>
 
         {/* Right column: DXF Preview */}
-        <Grid item xs={12} lg={7}>
-          <Paper sx={{ p: 2, height: '600px', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ flex: '1 1 58%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Paper sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Typography variant="h6" gutterBottom>
               Preview
             </Typography>
-            <Box sx={{ flexGrow: 1 }}>
+            <Box
+              sx={{
+                flexGrow: 1,
+                minHeight: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px dashed #ccc',
+                borderRadius: 1,
+                overflow: 'hidden',
+                position: 'relative',
+                backgroundColor: '#fafafa'
+              }}
+            >
               {selectedFile ? (
-                <DxfViewer
-                  filePath={selectedFile.path}
-                  fileId={selectedFile.id}
-                />
-              ) : (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    border: '2px dashed #ccc',
-                    borderRadius: 1,
-                  }}
-                >
-                  <Typography variant="body1" color="text.secondary">
-                    {files.length === 0
-                      ? 'Upload or drag & drop DXF files to preview'
-                      : 'Select a file from the list to preview'}
-                  </Typography>
+                <Box sx={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}>
+                  <DxfViewer
+                    filePath={selectedFile.path}
+                    fileId={selectedFile.id}
+                  />
                 </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary">
+                  {files.length === 0
+                    ? 'Upload or drag & drop DXF files to preview'
+                    : 'Select a file from the list to preview'}
+                </Typography>
               )}
             </Box>
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {files.length > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, flexShrink: 0 }}>
           <Button
             variant="contained"
             color="primary"

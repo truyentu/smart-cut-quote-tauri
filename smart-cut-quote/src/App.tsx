@@ -13,7 +13,6 @@ import AppLayout from './components/Layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import ClientSelection from './pages/ClientSelection';
 import FileUpload from './pages/FileUpload';
-import FilePreview from './pages/FilePreview';
 import FileHealing from './pages/FileHealing';
 import PartConfig from './pages/PartConfig';
 import Nesting from './pages/Nesting';
@@ -53,7 +52,6 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/client" element={<ClientSelection />} />
             <Route path="/upload" element={<FileUpload />} />
-            <Route path="/preview" element={<FilePreview />} />
             <Route path="/healing" element={<FileHealing />} />
             <Route path="/config" element={<PartConfig />} />
             <Route path="/nesting" element={<Nesting />} />

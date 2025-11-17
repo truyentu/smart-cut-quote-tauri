@@ -66,8 +66,8 @@ export default function FileListGrid({ selectedFileId, onSelectFile }: FileListG
   }
 
   return (
-    <TableContainer component={Paper}>
-      <Table size="small">
+    <TableContainer component={Paper} sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+      <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
             <TableCell><strong>File Name</strong></TableCell>
