@@ -75,16 +75,22 @@ export async function convertDxfToJson(
       inputFiles,
       outputPath,
       options: {
-        strip_height: options.stripHeight,
-        part_spacing: options.partSpacing,
-        arc_segments: options.arcSegments,
+        stripHeight: options.stripHeight,
+        partSpacing: options.partSpacing,
+        arcSegments: options.arcSegments,
       },
     });
     return result;
   } catch (error: any) {
+    // Log detailed error information for debugging
+    console.error('❌ convertDxfToJson exception caught:');
+    console.error('  Error type:', error.constructor.name);
+    console.error('  Error message:', error.message);
+    console.error('  Full error object:', error);
+
     return {
       success: false,
-      error: error.message || 'Failed to convert DXF files',
+      error: error.message || error.toString() || 'Failed to convert DXF files',
     };
   }
 }
@@ -107,9 +113,15 @@ export async function runNesting(
     });
     return result;
   } catch (error: any) {
+    // Log detailed error information for debugging
+    console.error('❌ runNesting exception caught:');
+    console.error('  Error type:', error.constructor.name);
+    console.error('  Error message:', error.message);
+    console.error('  Full error object:', error);
+
     return {
       success: false,
-      error: error.message || 'Failed to run nesting',
+      error: error.message || error.toString() || 'Failed to run nesting',
     };
   }
 }
@@ -155,7 +167,10 @@ export async function runNestingWorkflow(
 ): Promise<NestingWorkflowResult> {
   try {
     // Step 1: Convert DXF files to JSON
-    const inputFiles = files.map((f) => f.path);
+    // Format: "PATH:QUANTITY" as required by dxf-converter.exe (see INTEGRATION_GUIDE.md line 166-171)
+    // Note: Keep Windows backslashes - dxf-converter.exe is a Windows executable
+    // Using short flag -i in Rust command builder (see dxf_converter.rs)
+    const inputFiles = files.map((f) => `${f.path}:${f.quantity}`);
 
     // Use temp directory for intermediate files
     const tempDir = await getTempDirectory();
@@ -172,7 +187,10 @@ export async function runNestingWorkflow(
       arcSegments: 32,
     });
 
+    console.log('Conversion result:', JSON.stringify(conversionResult, null, 2));
+
     if (!conversionResult.success) {
+      console.error('Conversion failed with error:', conversionResult.error);
       throw new Error(conversionResult.error || 'Conversion failed');
     }
 
@@ -323,9 +341,10 @@ async function getTempDirectory(): Promise<string> {
   try {
     const { appDataDir } = await import('@tauri-apps/api/path');
     const appDir = await appDataDir();
-    return `${appDir}/temp`;
+    // Keep Windows path format for native Windows executables
+    return `${appDir}\\temp`;
   } catch (error) {
     // Fallback to relative path
-    return './temp';
+    return '.\\temp';
   }
 }

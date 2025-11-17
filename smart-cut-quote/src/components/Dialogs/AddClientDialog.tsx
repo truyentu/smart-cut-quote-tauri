@@ -83,7 +83,7 @@ export default function AddClientDialog({ open, onClose, onAddClient }: AddClien
       <DialogContent>
         <Box sx={{ pt: 2 }}>
           <Grid container spacing={2}>
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Name"
                 fullWidth
@@ -93,7 +93,7 @@ export default function AddClientDialog({ open, onClose, onAddClient }: AddClien
                 placeholder="Enter client name"
               />
             </Grid>
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Company"
                 fullWidth
@@ -103,7 +103,7 @@ export default function AddClientDialog({ open, onClose, onAddClient }: AddClien
                 placeholder="Enter company name"
               />
             </Grid>
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Email"
                 fullWidth
@@ -113,7 +113,7 @@ export default function AddClientDialog({ open, onClose, onAddClient }: AddClien
                 placeholder="Enter email address"
               />
             </Grid>
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 label="Phone"
                 fullWidth

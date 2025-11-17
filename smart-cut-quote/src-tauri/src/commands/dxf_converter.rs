@@ -3,6 +3,7 @@ use std::process::Command;
 use tauri::Manager;
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ConversionOptions {
     pub strip_height: f64,
     pub part_spacing: f64,
@@ -18,13 +19,19 @@ pub struct ConversionResult {
 
 /// Convert DXF files to JSON format for nesting
 /// Uses dxf-converter.exe bundled with the application
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn convert_dxf_to_json(
     app_handle: tauri::AppHandle,
     input_files: Vec<String>,
     output_path: String,
     options: ConversionOptions,
 ) -> Result<ConversionResult, String> {
+    // Debug: Print received parameters
+    println!("=== convert_dxf_to_json called (NEW CODE) ===");
+    println!("input_files: {:?}", input_files);
+    println!("output_path: {}", output_path);
+    println!("options: {:?}", options);
+
     // Resolve the path to dxf-converter.exe
     let resource_path = app_handle
         .path()
@@ -42,15 +49,16 @@ pub async fn convert_dxf_to_json(
     };
 
     if !exe_path.exists() {
+        let error_msg = format!("dxf-converter.exe not found at: {}", exe_path.display());
+        println!("❌ ERROR: {}", error_msg);
         return Ok(ConversionResult {
             success: false,
             output_path: None,
-            error: Some(format!(
-                "dxf-converter.exe not found at: {}",
-                exe_path.display()
-            )),
+            error: Some(error_msg),
         });
     }
+
+    println!("✓ Found dxf-converter.exe at: {}", exe_path.display());
 
     // Build command
     let mut cmd = Command::new(&exe_path);
@@ -62,8 +70,32 @@ pub async fn convert_dxf_to_json(
     }
 
     // Add input files
-    for file in &input_files {
-        cmd.arg("--input").arg(file);
+    // IMPORTANT: Use short flag -i (not --input) as shown in INTEGRATION_GUIDE.md
+    // CRITICAL WORKAROUND: dxf-converter.exe expects PATH:QUANTITY format
+    // But Windows absolute paths have drive letter colon (C:\...) which conflicts
+    // Solution: Split path and quantity in Rust, then pass multiple -i arguments
+    for file_spec in &input_files {
+        // Split by LAST colon to separate path from quantity
+        if let Some(last_colon_pos) = file_spec.rfind(':') {
+            // Check if this looks like PATH:QUANTITY format (not just drive letter)
+            // Drive letter format: "C:\path" (colon at position 1)
+            // PATH:QTY format: "C:\path\file.dxf:10" (colon after position 2)
+            if last_colon_pos > 2 {
+                // This is PATH:QUANTITY format
+                let path = &file_spec[..last_colon_pos];
+                let quantity = &file_spec[last_colon_pos + 1..];
+
+                // Pass as separate -i arguments for each quantity
+                let qty_num: usize = quantity.parse().unwrap_or(1);
+                for _ in 0..qty_num {
+                    cmd.arg("-i").arg(path);
+                }
+                continue;
+            }
+        }
+
+        // Fallback: no quantity found, pass as-is
+        cmd.arg("-i").arg(file_spec);
     }
 
     // Add output

@@ -123,7 +123,7 @@ export default function PdfExport() {
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Left: Preview Summary */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -180,7 +180,7 @@ export default function PdfExport() {
         </Grid>
 
         {/* Right: Export Actions */}
-        <Grid xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
