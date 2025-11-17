@@ -29,7 +29,7 @@ import {
   getMaterialSpec,
 } from '../data/mockData';
 import { DxfFile } from '../types/quote';
-import DxfViewer from '../components/Viewer/DxfViewer';
+import DxfThumbnail from '../components/Viewer/DxfThumbnail';
 import PreviewDialog from '../components/Dialogs/PreviewDialog';
 
 export default function PartLibrary() {
@@ -97,7 +97,7 @@ export default function PartLibrary() {
 
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center', py: 1 }}>
-        {/* DxfViewer Thumbnail */}
+        {/* DxfThumbnail */}
         <Box
           onClick={(e) => {
             e.stopPropagation();
@@ -117,7 +117,7 @@ export default function PartLibrary() {
             },
           }}
         >
-          <DxfViewer filePath={file.path} fileId={file.id} />
+          <DxfThumbnail filePath={file.path} size={80} />
         </Box>
 
         {/* Dimensions text only (below thumbnail) */}
