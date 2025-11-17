@@ -2,6 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use tauri::Manager;
 
+/// Input file with path and quantity
+/// Frontend sends this struct instead of pre-formatted "PATH:QUANTITY" string
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DxfFileInput {
+    pub path: String,
+    pub quantity: u32,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ConversionOptions {
@@ -19,16 +28,20 @@ pub struct ConversionResult {
 
 /// Convert DXF files to JSON format for nesting
 /// Uses dxf-converter.exe bundled with the application
+/// Backend now handles path normalization and command building
 #[tauri::command(rename_all = "camelCase")]
 pub async fn convert_dxf_to_json(
     app_handle: tauri::AppHandle,
-    input_files: Vec<String>,
+    input_files: Vec<DxfFileInput>,  // ✅ Changed: Now receives struct instead of pre-formatted strings
     output_path: String,
     options: ConversionOptions,
 ) -> Result<ConversionResult, String> {
     // Debug: Print received parameters
-    println!("=== convert_dxf_to_json called (NEW CODE) ===");
-    println!("input_files: {:?}", input_files);
+    println!("=== convert_dxf_to_json called (FIXED VERSION) ===");
+    println!("Received {} files:", input_files.len());
+    for (i, file) in input_files.iter().enumerate() {
+        println!("  File {}: path='{}', quantity={}", i + 1, file.path, file.quantity);
+    }
     println!("output_path: {}", output_path);
     println!("options: {:?}", options);
 
@@ -63,39 +76,25 @@ pub async fn convert_dxf_to_json(
     // Build command
     let mut cmd = Command::new(&exe_path);
 
-    // Debug logging
-    println!("Converting {} files to JSON", input_files.len());
-    for (i, file) in input_files.iter().enumerate() {
-        println!("  File {}: {}", i + 1, file);
-    }
+    // ✅ NEW LOGIC: Backend handles path normalization and command building
+    // According to INTEGRATION_GUIDE.md (lines 166-171):
+    // Syntax: -i filename.dxf:quantity
+    // Example: -i part.dxf:5  (creates 1 item with demand=5)
 
-    // Add input files
-    // IMPORTANT: Use short flag -i (not --input) as shown in INTEGRATION_GUIDE.md
-    // CRITICAL WORKAROUND: dxf-converter.exe expects PATH:QUANTITY format
-    // But Windows absolute paths have drive letter colon (C:\...) which conflicts
-    // Solution: Split path and quantity in Rust, then pass multiple -i arguments
-    for file_spec in &input_files {
-        // Split by LAST colon to separate path from quantity
-        if let Some(last_colon_pos) = file_spec.rfind(':') {
-            // Check if this looks like PATH:QUANTITY format (not just drive letter)
-            // Drive letter format: "C:\path" (colon at position 1)
-            // PATH:QTY format: "C:\path\file.dxf:10" (colon after position 2)
-            if last_colon_pos > 2 {
-                // This is PATH:QUANTITY format
-                let path = &file_spec[..last_colon_pos];
-                let quantity = &file_spec[last_colon_pos + 1..];
+    println!("Building command arguments:");
+    for file_input in &input_files {
+        // Step 1: Normalize path to Windows format (replace forward slashes with backslashes)
+        // This ensures consistent Windows native paths
+        let normalized_path = file_input.path.replace("/", "\\");
 
-                // Pass as separate -i arguments for each quantity
-                let qty_num: usize = quantity.parse().unwrap_or(1);
-                for _ in 0..qty_num {
-                    cmd.arg("-i").arg(path);
-                }
-                continue;
-            }
-        }
+        // Step 2: Build argument in correct format: "PATH:QUANTITY"
+        // This avoids the conflict between drive letter colon (C:) and quantity separator
+        let arg = format!("{}:{}", normalized_path, file_input.quantity);
 
-        // Fallback: no quantity found, pass as-is
-        cmd.arg("-i").arg(file_spec);
+        println!("  -i {}", arg);
+
+        // Step 3: Add to command
+        cmd.arg("-i").arg(&arg);
     }
 
     // Add output
