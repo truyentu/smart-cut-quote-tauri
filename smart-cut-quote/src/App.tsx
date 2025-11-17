@@ -14,9 +14,8 @@ import Dashboard from './pages/Dashboard';
 import ClientSelection from './pages/ClientSelection';
 import FileUpload from './pages/FileUpload';
 import FileHealing from './pages/FileHealing';
-import PartConfig from './pages/PartConfig';
+import PartLibrary from './pages/PartLibrary';
 import Nesting from './pages/Nesting';
-import Summary from './pages/Summary';
 import PdfExport from './pages/PdfExport';
 
 // Create MUI theme
@@ -53,9 +52,8 @@ function App() {
             <Route path="/client" element={<ClientSelection />} />
             <Route path="/upload" element={<FileUpload />} />
             <Route path="/healing" element={<FileHealing />} />
-            <Route path="/config" element={<PartConfig />} />
+            <Route path="/library" element={<PartLibrary />} />
             <Route path="/nesting" element={<Nesting />} />
-            <Route path="/summary" element={<Summary />} />
             <Route path="/export" element={<PdfExport />} />
           </Routes>
         </AppLayout>

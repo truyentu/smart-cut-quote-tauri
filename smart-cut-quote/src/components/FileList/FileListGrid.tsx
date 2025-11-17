@@ -1,6 +1,6 @@
 /**
  * File List Grid Component
- * Displays uploaded DXF files in a table with editable quantity and delete actions
+ * Displays uploaded DXF files in a table with file information and delete actions
  */
 
 import React from 'react';
@@ -13,8 +13,6 @@ import {
   TableRow,
   Paper,
   IconButton,
-  TextField,
-  Chip,
   Box,
   Typography
 } from '@mui/material';
@@ -29,14 +27,6 @@ interface FileListGridProps {
 export default function FileListGrid({ selectedFileId, onSelectFile }: FileListGridProps) {
   const files = useQuoteStore((state) => state.files);
   const removeFile = useQuoteStore((state) => state.removeFile);
-  const updateFile = useQuoteStore((state) => state.updateFile);
-
-  const handleQuantityChange = (fileId: string, newQuantity: string) => {
-    const quantity = parseInt(newQuantity, 10);
-    if (!isNaN(quantity) && quantity > 0) {
-      updateFile(fileId, { quantity });
-    }
-  };
 
   const handleRowClick = (fileId: string) => {
     if (onSelectFile) {
@@ -44,15 +34,11 @@ export default function FileListGrid({ selectedFileId, onSelectFile }: FileListG
     }
   };
 
-  const getStatusColor = (status: 'pending' | 'ok' | 'error') => {
-    switch (status) {
-      case 'ok':
-        return 'success';
-      case 'error':
-        return 'error';
-      default:
-        return 'default';
+  const formatSize = (dimensions?: { width: number; height: number }) => {
+    if (!dimensions) {
+      return 'Calculating...';
     }
+    return `${dimensions.width.toFixed(2)} × ${dimensions.height.toFixed(2)}`;
   };
 
   if (files.length === 0) {
@@ -70,14 +56,14 @@ export default function FileListGrid({ selectedFileId, onSelectFile }: FileListG
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
+            <TableCell width="60px"><strong>No.</strong></TableCell>
             <TableCell><strong>File Name</strong></TableCell>
-            <TableCell align="center"><strong>Qty</strong></TableCell>
-            <TableCell align="center"><strong>Status</strong></TableCell>
-            <TableCell align="center"><strong>Actions</strong></TableCell>
+            <TableCell align="center"><strong>Size</strong></TableCell>
+            <TableCell align="center" width="80px"><strong>Actions</strong></TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {files.map((file) => (
+          {files.map((file, index) => (
             <TableRow
               key={file.id}
               hover
@@ -93,6 +79,9 @@ export default function FileListGrid({ selectedFileId, onSelectFile }: FileListG
                 },
               }}
             >
+              <TableCell align="center">
+                <Typography variant="body2">{index + 1}</Typography>
+              </TableCell>
               <TableCell>
                 <Box>
                   <Typography variant="body2">{file.name}</Typography>
@@ -102,24 +91,9 @@ export default function FileListGrid({ selectedFileId, onSelectFile }: FileListG
                 </Box>
               </TableCell>
               <TableCell align="center">
-                <TextField
-                  type="number"
-                  size="small"
-                  value={file.quantity}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    handleQuantityChange(file.id, e.target.value);
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  inputProps={{ min: 1, style: { textAlign: 'center', width: '60px' } }}
-                />
-              </TableCell>
-              <TableCell align="center">
-                <Chip
-                  label={file.status.toUpperCase()}
-                  color={getStatusColor(file.status)}
-                  size="small"
-                />
+                <Typography variant="body2">
+                  {formatSize(file.metadata?.dimensions)}
+                </Typography>
               </TableCell>
               <TableCell align="center">
                 <IconButton

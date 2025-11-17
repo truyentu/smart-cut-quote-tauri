@@ -20,6 +20,14 @@ export interface DxfFile {
     area: number;
     dimensions: { width: number; height: number };
   };
+  // Part Library specific fields
+  materialGroup?: string;
+  materialGrade?: string;
+  materialThickness?: number;
+  materialMarkup?: number; // % markup on material cost
+  priceMarkup?: number; // % markup on total price
+  unitCost?: number; // Calculated unit cost
+  totalCost?: number; // Calculated total cost (unitCost * quantity)
 }
 
 export interface NestingResult {
