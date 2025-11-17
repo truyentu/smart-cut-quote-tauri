@@ -6,60 +6,398 @@
 import { Material, Machine, Client } from '../types/quote';
 
 /**
- * Mock materials with various properties
+ * Material hierarchy structure for 3-level filtering
  */
-export const MOCK_MATERIALS: Material[] = [
-  {
-    id: 'steel-mild-3mm',
-    name: 'Mild Steel',
-    grade: 'S235JR',
-    thickness: 3,
-    pricePerKg: 2.5,
-    density: 7850, // kg/m³
-    cuttingSpeed: 3000, // mm/min
-    pierceCost: 0.5, // $ per pierce
+export interface MaterialSpec {
+  id: string;
+  pricePerKg: number;
+  density: number; // kg/m³
+  cuttingSpeed: number; // mm/min
+  pierceCost: number; // $ per pierce
+}
+
+export interface MaterialHierarchy {
+  groups: {
+    [groupName: string]: {
+      grades: {
+        [gradeName: string]: {
+          thicknesses: {
+            [thickness: number]: MaterialSpec;
+          };
+        };
+      };
+    };
+  };
+}
+
+/**
+ * 3-Level Material Data Structure
+ * Level 1: Group (e.g., "Stainless Steel", "Mild Steel")
+ * Level 2: Grade (e.g., "304", "201", "S235JR")
+ * Level 3: Thickness (e.g., 0.9, 1, 1.5, 2, 3, 5)
+ */
+export const MATERIAL_HIERARCHY: MaterialHierarchy = {
+  groups: {
+    'Stainless Steel': {
+      grades: {
+        '304': {
+          thicknesses: {
+            0.9: {
+              id: 'ss-304-0.9',
+              pricePerKg: 5.2,
+              density: 8000,
+              cuttingSpeed: 2200,
+              pierceCost: 0.6,
+            },
+            1: {
+              id: 'ss-304-1',
+              pricePerKg: 5.2,
+              density: 8000,
+              cuttingSpeed: 2200,
+              pierceCost: 0.65,
+            },
+            1.5: {
+              id: 'ss-304-1.5',
+              pricePerKg: 5.1,
+              density: 8000,
+              cuttingSpeed: 2100,
+              pierceCost: 0.7,
+            },
+            2: {
+              id: 'ss-304-2',
+              pricePerKg: 5.0,
+              density: 8000,
+              cuttingSpeed: 2000,
+              pierceCost: 0.75,
+            },
+            3: {
+              id: 'ss-304-3',
+              pricePerKg: 5.0,
+              density: 8000,
+              cuttingSpeed: 2000,
+              pierceCost: 0.75,
+            },
+            5: {
+              id: 'ss-304-5',
+              pricePerKg: 5.0,
+              density: 8000,
+              cuttingSpeed: 1800,
+              pierceCost: 0.85,
+            },
+          },
+        },
+        '201': {
+          thicknesses: {
+            0.9: {
+              id: 'ss-201-0.9',
+              pricePerKg: 4.5,
+              density: 7900,
+              cuttingSpeed: 2300,
+              pierceCost: 0.55,
+            },
+            1: {
+              id: 'ss-201-1',
+              pricePerKg: 4.5,
+              density: 7900,
+              cuttingSpeed: 2300,
+              pierceCost: 0.6,
+            },
+            1.5: {
+              id: 'ss-201-1.5',
+              pricePerKg: 4.4,
+              density: 7900,
+              cuttingSpeed: 2200,
+              pierceCost: 0.65,
+            },
+            2: {
+              id: 'ss-201-2',
+              pricePerKg: 4.3,
+              density: 7900,
+              cuttingSpeed: 2100,
+              pierceCost: 0.7,
+            },
+            3: {
+              id: 'ss-201-3',
+              pricePerKg: 4.3,
+              density: 7900,
+              cuttingSpeed: 2100,
+              pierceCost: 0.7,
+            },
+          },
+        },
+        '316': {
+          thicknesses: {
+            1: {
+              id: 'ss-316-1',
+              pricePerKg: 6.5,
+              density: 8000,
+              cuttingSpeed: 2000,
+              pierceCost: 0.7,
+            },
+            1.5: {
+              id: 'ss-316-1.5',
+              pricePerKg: 6.4,
+              density: 8000,
+              cuttingSpeed: 1900,
+              pierceCost: 0.75,
+            },
+            2: {
+              id: 'ss-316-2',
+              pricePerKg: 6.3,
+              density: 8000,
+              cuttingSpeed: 1900,
+              pierceCost: 0.8,
+            },
+            3: {
+              id: 'ss-316-3',
+              pricePerKg: 6.3,
+              density: 8000,
+              cuttingSpeed: 1800,
+              pierceCost: 0.85,
+            },
+          },
+        },
+      },
+    },
+    'Mild Steel': {
+      grades: {
+        'S235JR': {
+          thicknesses: {
+            0.9: {
+              id: 'ms-s235jr-0.9',
+              pricePerKg: 2.6,
+              density: 7850,
+              cuttingSpeed: 3200,
+              pierceCost: 0.4,
+            },
+            1: {
+              id: 'ms-s235jr-1',
+              pricePerKg: 2.6,
+              density: 7850,
+              cuttingSpeed: 3200,
+              pierceCost: 0.45,
+            },
+            1.5: {
+              id: 'ms-s235jr-1.5',
+              pricePerKg: 2.5,
+              density: 7850,
+              cuttingSpeed: 3100,
+              pierceCost: 0.5,
+            },
+            2: {
+              id: 'ms-s235jr-2',
+              pricePerKg: 2.5,
+              density: 7850,
+              cuttingSpeed: 3000,
+              pierceCost: 0.5,
+            },
+            3: {
+              id: 'ms-s235jr-3',
+              pricePerKg: 2.5,
+              density: 7850,
+              cuttingSpeed: 3000,
+              pierceCost: 0.5,
+            },
+            5: {
+              id: 'ms-s235jr-5',
+              pricePerKg: 2.5,
+              density: 7850,
+              cuttingSpeed: 2500,
+              pierceCost: 0.6,
+            },
+            6: {
+              id: 'ms-s235jr-6',
+              pricePerKg: 2.5,
+              density: 7850,
+              cuttingSpeed: 2400,
+              pierceCost: 0.65,
+            },
+            8: {
+              id: 'ms-s235jr-8',
+              pricePerKg: 2.5,
+              density: 7850,
+              cuttingSpeed: 2200,
+              pierceCost: 0.7,
+            },
+            10: {
+              id: 'ms-s235jr-10',
+              pricePerKg: 2.5,
+              density: 7850,
+              cuttingSpeed: 2000,
+              pierceCost: 0.8,
+            },
+          },
+        },
+        'S275JR': {
+          thicknesses: {
+            1: {
+              id: 'ms-s275jr-1',
+              pricePerKg: 2.7,
+              density: 7850,
+              cuttingSpeed: 3100,
+              pierceCost: 0.45,
+            },
+            1.5: {
+              id: 'ms-s275jr-1.5',
+              pricePerKg: 2.7,
+              density: 7850,
+              cuttingSpeed: 3000,
+              pierceCost: 0.5,
+            },
+            2: {
+              id: 'ms-s275jr-2',
+              pricePerKg: 2.6,
+              density: 7850,
+              cuttingSpeed: 2900,
+              pierceCost: 0.55,
+            },
+            3: {
+              id: 'ms-s275jr-3',
+              pricePerKg: 2.6,
+              density: 7850,
+              cuttingSpeed: 2900,
+              pierceCost: 0.55,
+            },
+            5: {
+              id: 'ms-s275jr-5',
+              pricePerKg: 2.6,
+              density: 7850,
+              cuttingSpeed: 2400,
+              pierceCost: 0.65,
+            },
+          },
+        },
+      },
+    },
+    'Aluminum': {
+      grades: {
+        '6061-T6': {
+          thicknesses: {
+            1: {
+              id: 'al-6061-1',
+              pricePerKg: 4.2,
+              density: 2700,
+              cuttingSpeed: 4500,
+              pierceCost: 0.25,
+            },
+            1.5: {
+              id: 'al-6061-1.5',
+              pricePerKg: 4.1,
+              density: 2700,
+              cuttingSpeed: 4300,
+              pierceCost: 0.28,
+            },
+            2: {
+              id: 'al-6061-2',
+              pricePerKg: 4.0,
+              density: 2700,
+              cuttingSpeed: 4200,
+              pierceCost: 0.3,
+            },
+            3: {
+              id: 'al-6061-3',
+              pricePerKg: 4.0,
+              density: 2700,
+              cuttingSpeed: 4000,
+              pierceCost: 0.3,
+            },
+            5: {
+              id: 'al-6061-5',
+              pricePerKg: 4.0,
+              density: 2700,
+              cuttingSpeed: 4000,
+              pierceCost: 0.3,
+            },
+          },
+        },
+        '5052': {
+          thicknesses: {
+            1: {
+              id: 'al-5052-1',
+              pricePerKg: 3.8,
+              density: 2680,
+              cuttingSpeed: 4600,
+              pierceCost: 0.25,
+            },
+            1.5: {
+              id: 'al-5052-1.5',
+              pricePerKg: 3.7,
+              density: 2680,
+              cuttingSpeed: 4400,
+              pierceCost: 0.28,
+            },
+            2: {
+              id: 'al-5052-2',
+              pricePerKg: 3.6,
+              density: 2680,
+              cuttingSpeed: 4300,
+              pierceCost: 0.3,
+            },
+            3: {
+              id: 'al-5052-3',
+              pricePerKg: 3.6,
+              density: 2680,
+              cuttingSpeed: 4100,
+              pierceCost: 0.3,
+            },
+          },
+        },
+      },
+    },
   },
-  {
-    id: 'steel-stainless-3mm',
-    name: 'Stainless Steel',
-    grade: '304',
-    thickness: 3,
-    pricePerKg: 5.0,
-    density: 8000,
-    cuttingSpeed: 2000,
-    pierceCost: 0.75,
-  },
-  {
-    id: 'aluminum-5mm',
-    name: 'Aluminum',
-    grade: '6061-T6',
-    thickness: 5,
-    pricePerKg: 4.0,
-    density: 2700,
-    cuttingSpeed: 4000,
-    pierceCost: 0.3,
-  },
-  {
-    id: 'steel-mild-5mm',
-    name: 'Mild Steel',
-    grade: 'S235JR',
-    thickness: 5,
-    pricePerKg: 2.5,
-    density: 7850,
-    cuttingSpeed: 2500,
-    pierceCost: 0.6,
-  },
-  {
-    id: 'steel-stainless-5mm',
-    name: 'Stainless Steel',
-    grade: '304',
-    thickness: 5,
-    pricePerKg: 5.0,
-    density: 8000,
-    cuttingSpeed: 1800,
-    pierceCost: 0.85,
-  },
-];
+};
+
+/**
+ * Helper functions for material hierarchy
+ */
+export const getMaterialGroups = (): string[] => {
+  return Object.keys(MATERIAL_HIERARCHY.groups);
+};
+
+export const getMaterialGrades = (group: string): string[] => {
+  return Object.keys(MATERIAL_HIERARCHY.groups[group]?.grades || {});
+};
+
+export const getMaterialThicknesses = (group: string, grade: string): number[] => {
+  const thicknesses = MATERIAL_HIERARCHY.groups[group]?.grades[grade]?.thicknesses;
+  return thicknesses ? Object.keys(thicknesses).map(Number).sort((a, b) => a - b) : [];
+};
+
+export const getMaterialSpec = (
+  group: string,
+  grade: string,
+  thickness: number
+): MaterialSpec | null => {
+  return MATERIAL_HIERARCHY.groups[group]?.grades[grade]?.thicknesses[thickness] || null;
+};
+
+/**
+ * Legacy materials array (backward compatible)
+ * Auto-generated from hierarchy for components that still use the old format
+ */
+export const MOCK_MATERIALS: Material[] = (() => {
+  const materials: Material[] = [];
+  const groups = MATERIAL_HIERARCHY.groups;
+
+  Object.entries(groups).forEach(([groupName, groupData]) => {
+    Object.entries(groupData.grades).forEach(([gradeName, gradeData]) => {
+      Object.entries(gradeData.thicknesses).forEach(([thickness, spec]) => {
+        materials.push({
+          id: spec.id,
+          name: groupName,
+          grade: gradeName,
+          thickness: Number(thickness),
+          pricePerKg: spec.pricePerKg,
+          density: spec.density,
+          cuttingSpeed: spec.cuttingSpeed,
+          pierceCost: spec.pierceCost,
+        });
+      });
+    });
+  });
+
+  return materials;
+})();
 
 /**
  * Mock machines with different capabilities and rates

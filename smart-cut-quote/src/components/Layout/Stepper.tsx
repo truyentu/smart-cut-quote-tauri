@@ -17,9 +17,8 @@ const steps = [
   { label: 'Dashboard', path: '/' },
   { label: 'Upload', path: '/upload' },
   { label: 'Healing', path: '/healing' },
-  { label: 'Config', path: '/config' },
+  { label: 'Library', path: '/library' },
   { label: 'Nesting', path: '/nesting' },
-  { label: 'Summary', path: '/summary' },
   { label: 'Export', path: '/export' },
 ];
 

@@ -16,9 +16,8 @@ import {
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import HealingIcon from '@mui/icons-material/Healing';
-import SettingsIcon from '@mui/icons-material/Settings';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import GridOnIcon from '@mui/icons-material/GridOn';
-import SummarizeIcon from '@mui/icons-material/Summarize';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuoteStore } from '../../stores/quoteStore';
@@ -27,10 +26,9 @@ const menuItems = [
   { id: 0, label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { id: 1, label: 'File Upload', icon: <UploadFileIcon />, path: '/upload' },
   { id: 2, label: 'File Healing', icon: <HealingIcon />, path: '/healing' },
-  { id: 3, label: 'Part Config', icon: <SettingsIcon />, path: '/config' },
+  { id: 3, label: 'Part Library', icon: <LibraryBooksIcon />, path: '/library' },
   { id: 4, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
-  { id: 5, label: 'Summary', icon: <SummarizeIcon />, path: '/summary' },
-  { id: 6, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
+  { id: 5, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
 ];
 
 export default function Sidebar() {
