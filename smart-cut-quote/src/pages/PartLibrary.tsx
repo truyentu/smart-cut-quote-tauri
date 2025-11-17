@@ -29,10 +29,14 @@ import {
   getMaterialSpec,
 } from '../data/mockData';
 import { DxfFile } from '../types/quote';
+import DxfViewer from '../components/Viewer/DxfViewer';
+import PreviewDialog from '../components/Dialogs/PreviewDialog';
 
 export default function PartLibrary() {
   const files = useQuoteStore((state) => state.files);
   const updateFile = useQuoteStore((state) => state.updateFile);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [previewFile, setPreviewFile] = useState<DxfFile | null>(null);
 
   /**
    * Calculate unit cost and total cost for a file
@@ -93,31 +97,27 @@ export default function PartLibrary() {
 
     return (
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', py: 1 }}>
-        {/* Thumbnail placeholder */}
+        {/* DxfViewer Thumbnail */}
         <Box
+          onClick={(e) => {
+            e.stopPropagation();
+            setPreviewFile(file);
+          }}
           sx={{
             width: 80,
             height: 80,
-            border: '1px solid #ddd',
+            border: '1px solid #eee',
             borderRadius: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#f5f5f5',
+            overflow: 'hidden',
             flexShrink: 0,
+            cursor: 'pointer',
+            '&:hover': {
+              borderColor: '#1976d2',
+              boxShadow: 1,
+            },
           }}
         >
-          {file.preview ? (
-            <img
-              src={file.preview}
-              alt={file.name}
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-            />
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              No preview
-            </Typography>
-          )}
+          <DxfViewer filePath={file.path} fileId={file.id} />
         </Box>
 
         {/* Dimensions */}
@@ -443,6 +443,13 @@ export default function PartLibrary() {
           </Typography>
         </Box>
       </Paper>
+
+      {/* Preview Dialog */}
+      <PreviewDialog
+        file={previewFile}
+        open={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+      />
     </Box>
   );
 }
