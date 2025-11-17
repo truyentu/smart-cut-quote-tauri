@@ -12,9 +12,9 @@ import {
   TextField,
   Card,
   CardContent,
-  Grid,
   Divider,
   Alert,
+  Grid,
 } from '@mui/material';
 import BusinessIcon from '@mui/icons-material/Business';
 import EmailIcon from '@mui/icons-material/Email';
@@ -88,7 +88,7 @@ export default function ClientSelection() {
             <Card sx={{ mt: 2 }}>
               <CardContent>
                 <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <PersonIcon sx={{ mr: 2, color: 'primary.main' }} />
                       <Box>
@@ -114,7 +114,7 @@ export default function ClientSelection() {
                     </Box>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid xs={12} md={6}>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                       <EmailIcon sx={{ mr: 2, color: 'primary.main' }} />
                       <Box>

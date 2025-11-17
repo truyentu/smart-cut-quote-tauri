@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Typography, Grid, Button } from '@mui/material';
+import { Box, Typography, Button, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import QuoteGrid from '../components/Dashboard/QuoteGrid';
@@ -42,22 +42,22 @@ export default function Dashboard() {
 
       <Grid container spacing={3}>
         {/* Top Left: Manage Quotes (Pending) */}
-        <Grid item xs={12} lg={6} sx={{ display: 'flex' }}>
+        <Grid xs={12} lg={6} sx={{ display: 'flex' }}>
           <QuoteGrid title="Manage Quotes" data={manageQuotes} />
         </Grid>
 
         {/* Top Right: Continue Quotes (Accepted) */}
-        <Grid item xs={12} lg={6} sx={{ display: 'flex' }}>
+        <Grid xs={12} lg={6} sx={{ display: 'flex' }}>
           <QuoteGrid title="Recent Accepted Quotes" data={continueQuotes} />
         </Grid>
 
         {/* Bottom Left: Statistics Chart */}
-        <Grid item xs={12} lg={6} sx={{ display: 'flex' }}>
+        <Grid xs={12} lg={6} sx={{ display: 'flex' }}>
           <StatisticsChart />
         </Grid>
 
         {/* Bottom Right: Tasks List */}
-        <Grid item xs={12} lg={6} sx={{ display: 'flex' }}>
+        <Grid xs={12} lg={6} sx={{ display: 'flex' }}>
           <TasksList />
         </Grid>
       </Grid>

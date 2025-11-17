@@ -413,9 +413,13 @@ export default function PartLibrary() {
       headerName: 'Unit Cost ($)',
       width: 120,
       editable: false,
-      type: 'number',
-      valueFormatter: (params) => {
-        return params.value ? `$${params.value.toFixed(2)}` : '$0.00';
+      renderCell: (params: GridRenderCellParams<DxfFile>) => {
+        const value = params.row.unitCost;
+        return (
+          <Typography variant="body2">
+            {value != null ? `$${value.toFixed(2)}` : '$0.00'}
+          </Typography>
+        );
       },
     },
     {
@@ -423,9 +427,13 @@ export default function PartLibrary() {
       headerName: 'Total Cost ($)',
       width: 120,
       editable: false,
-      type: 'number',
-      valueFormatter: (params) => {
-        return params.value ? `$${params.value.toFixed(2)}` : '$0.00';
+      renderCell: (params: GridRenderCellParams<DxfFile>) => {
+        const value = params.row.totalCost;
+        return (
+          <Typography variant="body2">
+            {value != null ? `$${value.toFixed(2)}` : '$0.00'}
+          </Typography>
+        );
       },
     },
   ];
