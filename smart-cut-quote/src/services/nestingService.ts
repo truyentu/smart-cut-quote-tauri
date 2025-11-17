@@ -164,6 +164,8 @@ export async function runNestingWorkflow(
     const resultSvgPath = `${tempDir}/result.svg`;
 
     console.log('Step 1: Converting DXF files to JSON...');
+    console.log('Input files:', inputFiles);
+    console.log('Output path:', nestingJsonPath);
     const conversionResult = await convertDxfToJson(inputFiles, nestingJsonPath, {
       stripHeight,
       partSpacing,
