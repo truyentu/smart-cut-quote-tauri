@@ -55,6 +55,12 @@ pub async fn convert_dxf_to_json(
     // Build command
     let mut cmd = Command::new(&exe_path);
 
+    // Debug logging
+    println!("Converting {} files to JSON", input_files.len());
+    for (i, file) in input_files.iter().enumerate() {
+        println!("  File {}: {}", i + 1, file);
+    }
+
     // Add input files
     for file in &input_files {
         cmd.arg("--input").arg(file);
@@ -71,10 +77,23 @@ pub async fn convert_dxf_to_json(
     cmd.arg("--arc-segments")
         .arg(options.arc_segments.to_string());
 
+    // Debug: Print the full command
+    println!("Executing command: {:?}", cmd);
+
     // Execute
     let output = cmd
         .output()
         .map_err(|e| format!("Failed to execute dxf-converter: {}", e))?;
+
+    // Debug: Print stdout and stderr
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stdout.is_empty() {
+        println!("dxf-converter stdout: {}", stdout);
+    }
+    if !stderr.is_empty() {
+        println!("dxf-converter stderr: {}", stderr);
+    }
 
     if output.status.success() {
         Ok(ConversionResult {
