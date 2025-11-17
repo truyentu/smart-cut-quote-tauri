@@ -61,7 +61,7 @@ export default function PreviewDialog({ file, open, onClose }: PreviewDialogProp
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="lg"
+      maxWidth="md"
       fullWidth
       PaperProps={{
         sx: {

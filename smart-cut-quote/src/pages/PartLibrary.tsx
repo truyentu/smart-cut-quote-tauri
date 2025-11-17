@@ -96,7 +96,7 @@ export default function PartLibrary() {
     const dimensions = file.metadata?.dimensions;
 
     return (
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', py: 1 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'center', py: 1 }}>
         {/* DxfViewer Thumbnail */}
         <Box
           onClick={(e) => {
@@ -120,17 +120,12 @@ export default function PartLibrary() {
           <DxfViewer filePath={file.path} fileId={file.id} />
         </Box>
 
-        {/* Dimensions */}
-        <Box>
-          <Typography variant="body2" fontWeight="medium">
-            Dimensions
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {dimensions
-              ? `${dimensions.width.toFixed(2)} × ${dimensions.height.toFixed(2)}`
-              : 'Calculating...'}
-          </Typography>
-        </Box>
+        {/* Dimensions text only (below thumbnail) */}
+        <Typography variant="caption" color="text.secondary">
+          {dimensions
+            ? `${dimensions.width.toFixed(2)} × ${dimensions.height.toFixed(2)}`
+            : 'Calculating...'}
+        </Typography>
       </Box>
     );
   };
