@@ -100,28 +100,35 @@ export function calculateTotalCost(
 
   // If we have nesting result, use it for material cost calculation
   if (nestingResult) {
-    // Group parts by material
-    const partsByMaterial = new Map<string, DxfFile[]>();
+    // Group parts by Material + Thickness (matching the batching logic)
+    const partsByMaterialAndThickness = new Map<string, DxfFile[]>();
 
     parts.forEach((part) => {
       if (part.material) {
-        const key = part.material.id;
-        if (!partsByMaterial.has(key)) {
-          partsByMaterial.set(key, []);
+        // Create key matching batching logic: MaterialName-Thickness
+        const materialName = part.materialGroup || part.material.name;
+        const thickness = part.materialThickness || part.material.thickness;
+        const key = `${materialName}-${thickness}mm`;
+
+        if (!partsByMaterialAndThickness.has(key)) {
+          partsByMaterialAndThickness.set(key, []);
         }
-        partsByMaterial.get(key)?.push(part);
+        partsByMaterialAndThickness.get(key)?.push(part);
       }
     });
 
-    // Calculate material cost per material type
-    partsByMaterial.forEach((partsGroup, materialId) => {
-      const material = materials.find((m) => m.id === materialId);
+    // Calculate material cost per Material + Thickness group
+    partsByMaterialAndThickness.forEach((partsGroup, groupKey) => {
+      const material = materials.find(
+        (m) => m.id === partsGroup[0]?.material?.id
+      );
       if (!material) return;
 
-      // Sum up quantities for this material
+      // Sum up quantities for this material + thickness group
       const totalQuantity = partsGroup.reduce((sum, p) => sum + p.quantity, 0);
 
       // Calculate material cost based on nesting strip size
+      // IMPORTANT: Uses stripWidth (output from nesting) not stripHeight (input)
       const matCost = calculateMaterialCost(
         nestingResult.stripWidth,
         nestingResult.stripHeight,
@@ -160,6 +167,96 @@ export function calculateTotalCost(
       part.quantity
     );
     totalOperationsCost += opsCost;
+  });
+
+  // Calculate subtotal
+  const subtotal = totalMaterialCost + totalCuttingCost + totalOperationsCost;
+
+  // Calculate tax (5%)
+  const tax = subtotal * 0.05;
+
+  // Calculate total
+  const total = subtotal + tax;
+
+  return {
+    materialCost: Math.round(totalMaterialCost * 100) / 100,
+    cuttingCost: Math.round(totalCuttingCost * 100) / 100,
+    operationsCost: Math.round(totalOperationsCost * 100) / 100,
+    subtotal: Math.round(subtotal * 100) / 100,
+    tax: Math.round(tax * 100) / 100,
+    total: Math.round(total * 100) / 100,
+  };
+}
+
+/**
+ * Calculate total cost for batched nesting results
+ * This version handles multiple nesting results (one per material+thickness batch)
+ */
+export function calculateTotalCostForBatches(
+  batchResults: Array<{
+    batchKey: string;
+    materialGroup: string;
+    materialThickness: number;
+    files: DxfFile[];
+    nestingResult: { success: boolean; data?: NestingResult | null };
+  }>,
+  materials: Material[],
+  machines: Machine[]
+): QuoteSummary {
+  let totalMaterialCost = 0;
+  let totalCuttingCost = 0;
+  let totalOperationsCost = 0;
+
+  // Process each batch separately
+  batchResults.forEach((batch) => {
+    if (!batch.nestingResult.success || !batch.nestingResult.data) {
+      console.warn(`Skipping batch ${batch.batchKey} - nesting failed`);
+      return;
+    }
+
+    const nestingData = batch.nestingResult.data;
+    const batchFiles = batch.files;
+
+    // Calculate material cost for this batch
+    batchFiles.forEach((file) => {
+      const material = materials.find(
+        (m) => m.id === file.material?.id ||
+               (m.name === file.materialGroup && m.thickness === file.materialThickness)
+      );
+      if (!material) return;
+
+      // Calculate material cost based on nesting strip size
+      // IMPORTANT: Uses stripWidth (output from nesting)
+      const matCost = calculateMaterialCost(
+        nestingData.stripWidth,
+        nestingData.stripHeight,
+        material,
+        file.quantity
+      );
+
+      totalMaterialCost += matCost;
+
+      // Calculate cutting cost
+      const machine = machines.find((m) => m.name === file.machine);
+      if (machine && file.metadata) {
+        const cutCost = calculateCuttingCost(
+          file.metadata.cutLength,
+          file.metadata.pierceCount,
+          material,
+          machine,
+          file.quantity
+        );
+        totalCuttingCost += cutCost;
+      }
+
+      // Calculate operations cost
+      const opsCost = calculateOperationsCost(
+        file.operations,
+        material,
+        file.quantity
+      );
+      totalOperationsCost += opsCost;
+    });
   });
 
   // Calculate subtotal
