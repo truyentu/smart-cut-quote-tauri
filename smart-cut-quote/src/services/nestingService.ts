@@ -38,6 +38,30 @@ interface NestingWorkflowResult {
   error?: string;
 }
 
+interface BatchInfo {
+  batchKey: string;
+  materialGroup: string;
+  materialThickness: number;
+  files: DxfFile[];
+}
+
+interface BatchedNestingResult {
+  batchKey: string;
+  materialGroup: string;
+  materialThickness: number;
+  files: DxfFile[];
+  nestingResult: NestingWorkflowResult;
+}
+
+interface BatchedNestingWorkflowResult {
+  success: boolean;
+  batches: BatchedNestingResult[];
+  totalBatches: number;
+  successfulBatches: number;
+  failedBatches: number;
+  error?: string;
+}
+
 /**
  * Convert DXF files to JSON format using dxf-converter.exe
  */
@@ -186,6 +210,105 @@ export async function runNestingWorkflow(
     console.error('Nesting workflow failed:', error);
     return {
       success: false,
+      error: error.message || 'Unknown error occurred',
+    };
+  }
+}
+
+/**
+ * Run nesting workflow with automatic batching by Material + Thickness
+ * This is the MAIN function to use - it groups files and processes each batch separately
+ */
+export async function runNestingWorkflowWithBatching(
+  files: DxfFile[],
+  stripHeight: number = 6000,
+  partSpacing: number = 5
+): Promise<BatchedNestingWorkflowResult> {
+  try {
+    console.log(`Starting batched nesting workflow for ${files.length} files...`);
+
+    // Step 1: Group files by Material Group + Thickness
+    const batches = new Map<string, BatchInfo>();
+
+    files.forEach((file) => {
+      // Use materialGroup (or material.name) and materialThickness
+      const materialGroup = file.materialGroup || file.material?.name || 'Unknown';
+      const materialThickness = file.materialThickness || file.material?.thickness || 0;
+
+      // Create batch key: "MaterialGroup-Thickness"
+      const batchKey = `${materialGroup}-${materialThickness}mm`;
+
+      if (!batches.has(batchKey)) {
+        batches.set(batchKey, {
+          batchKey,
+          materialGroup,
+          materialThickness,
+          files: [],
+        });
+      }
+
+      batches.get(batchKey)!.files.push(file);
+    });
+
+    console.log(`Created ${batches.size} batches based on Material + Thickness`);
+
+    // Step 2: Process each batch separately
+    const batchResults: BatchedNestingResult[] = [];
+    let successfulBatches = 0;
+    let failedBatches = 0;
+
+    for (const [batchKey, batchInfo] of batches) {
+      console.log(
+        `Processing batch: ${batchKey} (${batchInfo.files.length} files)`
+      );
+
+      // Run nesting workflow for this specific batch
+      const nestingResult = await runNestingWorkflow(
+        batchInfo.files,
+        stripHeight,
+        partSpacing
+      );
+
+      if (nestingResult.success) {
+        successfulBatches++;
+        console.log(`✓ Batch ${batchKey} completed successfully`);
+      } else {
+        failedBatches++;
+        console.error(`✗ Batch ${batchKey} failed: ${nestingResult.error}`);
+      }
+
+      batchResults.push({
+        batchKey,
+        materialGroup: batchInfo.materialGroup,
+        materialThickness: batchInfo.materialThickness,
+        files: batchInfo.files,
+        nestingResult,
+      });
+    }
+
+    console.log(
+      `Batched nesting completed: ${successfulBatches}/${batches.size} successful`
+    );
+
+    return {
+      success: failedBatches === 0,
+      batches: batchResults,
+      totalBatches: batches.size,
+      successfulBatches,
+      failedBatches,
+      error:
+        failedBatches > 0
+          ? `${failedBatches} batch(es) failed to complete`
+          : undefined,
+    };
+  } catch (error: any) {
+    console.error('Batched nesting workflow failed:', error);
+    return {
+      success: false,
+      batches: [],
+      totalBatches: 0,
+      successfulBatches: 0,
+      failedBatches: 0,
       error: error.message || 'Unknown error occurred',
     };
   }
