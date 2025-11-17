@@ -167,16 +167,20 @@ export async function runNestingWorkflow(
 ): Promise<NestingWorkflowResult> {
   try {
     // Step 1: Convert DXF files to JSON
-    // Format: "PATH:QUANTITY" as required by dxf-converter.exe (see INTEGRATION_GUIDE.md line 166-171)
-    // Note: Keep Windows backslashes - dxf-converter.exe is a Windows executable
-    // Using short flag -i in Rust command builder (see dxf_converter.rs)
-    const inputFiles = files.map((f) => `${f.path}:${f.quantity}`);
+    // ✅ FIXED: Send raw data (path and quantity separately) to backend
+    // Backend (Rust) will handle path normalization and command building
+    // This avoids conflict between Windows drive letter colon (C:) and quantity separator (:)
+    const inputFiles = files.map((f) => ({
+      path: f.path,           // Raw path, no formatting
+      quantity: f.quantity    // Raw quantity as number
+    }));
 
     // Use temp directory for intermediate files
     const tempDir = await getTempDirectory();
-    const nestingJsonPath = `${tempDir}/nesting.json`;
-    const resultJsonPath = `${tempDir}/result.json`;
-    const resultSvgPath = `${tempDir}/result.svg`;
+    // ✅ FIXED: Use consistent Windows path separators (backslashes)
+    const nestingJsonPath = `${tempDir}\\nesting.json`;
+    const resultJsonPath = `${tempDir}\\result.json`;
+    const resultSvgPath = `${tempDir}\\result.svg`;
 
     console.log('Step 1: Converting DXF files to JSON...');
     console.log('Input files:', inputFiles);
@@ -336,13 +340,16 @@ export async function runNestingWorkflowWithBatching(
 
 /**
  * Get temporary directory path
+ * Returns Windows-style path with backslashes
  */
 async function getTempDirectory(): Promise<string> {
   try {
     const { appDataDir } = await import('@tauri-apps/api/path');
     const appDir = await appDataDir();
-    // Keep Windows path format for native Windows executables
-    return `${appDir}\\temp`;
+    // ✅ FIXED: Normalize to Windows backslashes (appDataDir may return mixed separators)
+    // Replace any forward slashes with backslashes for consistency
+    const normalizedAppDir = appDir.replace(/\//g, '\\');
+    return `${normalizedAppDir}\\temp`;
   } catch (error) {
     // Fallback to relative path
     return '.\\temp';
