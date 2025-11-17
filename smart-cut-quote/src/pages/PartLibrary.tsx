@@ -17,7 +17,7 @@ import {
   InputLabel,
   SelectChangeEvent,
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams, GridRowSelectionModel } from '@mui/x-data-grid';
 import BuildIcon from '@mui/icons-material/Build';
 import PaletteIcon from '@mui/icons-material/Palette';
 import { useQuoteStore } from '../stores/quoteStore';
@@ -33,7 +33,6 @@ import { DxfFile } from '../types/quote';
 export default function PartLibrary() {
   const files = useQuoteStore((state) => state.files);
   const updateFile = useQuoteStore((state) => state.updateFile);
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   /**
    * Calculate unit cost and total cost for a file
@@ -408,10 +407,6 @@ export default function PartLibrary() {
           checkboxSelection
           disableRowSelectionOnClick
           rowHeight={120}
-          onRowSelectionModelChange={(newSelection) => {
-            setSelectedRows(newSelection as string[]);
-          }}
-          rowSelectionModel={selectedRows}
           processRowUpdate={(newRow) => {
             handleFileUpdate(newRow.id, newRow);
             return newRow;
@@ -419,6 +414,12 @@ export default function PartLibrary() {
           onProcessRowUpdateError={(error) => {
             console.error('Row update error:', error);
           }}
+          initialState={{
+            pagination: {
+              paginationModel: { pageSize: 25 },
+            },
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
           sx={{
             '& .MuiDataGrid-cell': {
               padding: 1,
