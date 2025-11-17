@@ -76,25 +76,30 @@ pub async fn convert_dxf_to_json(
     // Build command
     let mut cmd = Command::new(&exe_path);
 
-    // ✅ NEW LOGIC: Backend handles path normalization and command building
-    // According to INTEGRATION_GUIDE.md (lines 166-171):
-    // Syntax: -i filename.dxf:quantity
-    // Example: -i part.dxf:5  (creates 1 item with demand=5)
+    // ✅ WORKAROUND: Call -i multiple times instead of using :quantity syntax
+    // REASON: dxf-converter.exe has a bug parsing Windows absolute paths with :quantity
+    // Example bug: "C:\Users\file.dxf:5" → split(':') → ["C", "\Users\file.dxf", "5"]
+    //              dxf-converter only sees path="C" → Error: Input file not found: C
+    //
+    // WORKAROUND: Instead of "-i C:\file.dxf:5"
+    //             Use: "-i C:\file.dxf -i C:\file.dxf -i C:\file.dxf -i C:\file.dxf -i C:\file.dxf"
+    //
+    // TODO: Fix dxf-converter.exe source to use lastIndexOf(':') instead of split(':')
+    //       Repo: https://github.com/truyentu/converters-mvp
 
-    println!("Building command arguments:");
+    println!("Building command arguments (using duplicate -i workaround):");
     for file_input in &input_files {
         // Step 1: Normalize path to Windows format (replace forward slashes with backslashes)
         // This ensures consistent Windows native paths
         let normalized_path = file_input.path.replace("/", "\\");
 
-        // Step 2: Build argument in correct format: "PATH:QUANTITY"
-        // This avoids the conflict between drive letter colon (C:) and quantity separator
-        let arg = format!("{}:{}", normalized_path, file_input.quantity);
-
-        println!("  -i {}", arg);
-
-        // Step 3: Add to command
-        cmd.arg("-i").arg(&arg);
+        // Step 2: Add -i flag multiple times based on quantity
+        // Each call creates one instance in the output JSON
+        println!("  Adding file: {} (quantity: {})", normalized_path, file_input.quantity);
+        for i in 0..file_input.quantity {
+            println!("    -i {} (copy {})", normalized_path, i + 1);
+            cmd.arg("-i").arg(&normalized_path);
+        }
     }
 
     // Add output
