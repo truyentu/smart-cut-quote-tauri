@@ -1,0 +1,90 @@
+[package]
+name = "sparroWASM"
+version = "0.1.0"
+authors = ["Jeroen Gardeyn"]
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "sparrow-cli"
+path = "src/bin/cli.rs"
+
+[[bin]]
+name = "sparrow-visualizer"
+path = "src/bin/visualizer.rs"
+
+[[bin]]
+name = "dxf-converter"
+path = "src/bin/dxf_converter.rs"
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+# Core dependencies (both WASM and native)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+anyhow = { version = "1.0" }
+log = "0.4"
+lazy_static = "1.5"
+fern = "0.7"
+jiff = "0.2"
+rand = { version = "0.9" }
+rand_xoshiro = "0.7.0"
+
+# Core nesting algorithm dependencies
+sparrow = { git = "https://github.com/JeroenGar/sparrow.git", rev = "04f54ff77fd9b614311879e8c62ee4e13294165e", features = ["only_final_svg", "simd"]}
+jagua-rs = { git = "https://github.com/JeroenGar/jagua-rs.git", rev = "877aaa3c3217f0dd2b6f1c8af8d3e53d4023e422", features = ["spp"] }
+
+# CLI-specific dependencies
+clap = { version = "4.5", features = ["derive"] }
+
+# DXF converter dependencies
+dxf = "0.6"
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+# WASM-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "EventTarget", "MouseEvent", "console"] }
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+web-time = "1.1"
+wasm-bindgen-rayon = "1.3"
+once_cell = "1.21.3"
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+# Native-specific dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getrandom = { version = "0.3" }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+
+[profile.dev]
+opt-level = 1
+debug = true
+
+[profile.test]
+opt-level = 3
+debug-assertions = true
+overflow-checks = true
+debug = true
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.34"
+
+[package.metadata.wasm-pack.profile.profiling]
+wasm-opt = ['-O4', '-g']
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-O4']

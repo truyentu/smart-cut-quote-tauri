@@ -1,40 +1,24 @@
 /**
  * Nesting Service
- * Provides functions to call Tauri backend commands for DXF conversion and nesting
- * Based on IMPLEMENTATION_PLAN.md section 8.4
+ *
+ * Provides functions for DXF conversion and nesting optimization.
+ * Uses integrated TypeScript DXF converter and Rust nesting engine.
+ * No external CLI processes are spawned.
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { readTextFile, writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+import { convertMultipleDxf } from '../lib/dxf-converter';
 import { DxfFile, NestingResult as NestingResultType } from '../types/quote';
 
-interface ConversionOptions {
-  stripHeight: number;
-  partSpacing: number;
-  arcSegments: number;
-}
-
-interface NestingOptions {
-  timeout: number;
-  workers: number;
-}
-
-interface ConversionResult {
-  success: boolean;
-  output_path?: string;
-  error?: string;
-}
-
-interface NestingResult {
-  success: boolean;
-  result_json?: string;
-  result_svg?: string;
-  error?: string;
-}
+// ============================================================================
+// Types
+// ============================================================================
 
 interface NestingWorkflowResult {
   success: boolean;
   data?: NestingResultType;
-  svgPath?: string;
+  svgUrl?: string;
   error?: string;
 }
 
@@ -62,186 +46,198 @@ interface BatchedNestingWorkflowResult {
   error?: string;
 }
 
-/**
- * Convert DXF files to JSON format using dxf-converter.exe
- */
-export async function convertDxfToJson(
-  inputFiles: string[],
-  outputPath: string,
-  options: ConversionOptions
-): Promise<ConversionResult> {
-  try {
-    const result = await invoke<ConversionResult>('convert_dxf_to_json', {
-      inputFiles,
-      outputPath,
-      options: {
-        stripHeight: options.stripHeight,
-        partSpacing: options.partSpacing,
-        arcSegments: options.arcSegments,
-      },
-    });
-    return result;
-  } catch (error: any) {
-    // Log detailed error information for debugging
-    console.error('❌ convertDxfToJson exception caught:');
-    console.error('  Error type:', error.constructor.name);
-    console.error('  Error message:', error.message);
-    console.error('  Full error object:', error);
-
-    return {
-      success: false,
-      error: error.message || error.toString() || 'Failed to convert DXF files',
-    };
-  }
+// Backend types (must match Rust structs)
+interface NestingInput {
+  json_input: string;
+  time_limit?: number;
+  seed?: number;
+  use_early_termination?: boolean;
+  n_workers?: number;
 }
 
-/**
- * Run nesting optimization using sparrow-cli.exe
- */
-export async function runNesting(
-  inputJson: string,
-  outputJson: string,
-  outputSvg: string,
-  options: NestingOptions
-): Promise<NestingResult> {
-  try {
-    const result = await invoke<NestingResult>('run_nesting', {
-      inputJson,
-      outputJson,
-      outputSvg,
-      options,
-    });
-    return result;
-  } catch (error: any) {
-    // Log detailed error information for debugging
-    console.error('❌ runNesting exception caught:');
-    console.error('  Error type:', error.constructor.name);
-    console.error('  Error message:', error.message);
-    console.error('  Full error object:', error);
-
-    return {
-      success: false,
-      error: error.message || error.toString() || 'Failed to run nesting',
-    };
-  }
+interface PlacedItem {
+  item_id: number;
+  rotation_degrees: number;
+  position_x: number;
+  position_y: number;
 }
 
-/**
- * Parse nesting result JSON file
- */
-async function parseNestingResult(jsonPath: string): Promise<NestingResultType | null> {
-  try {
-    // Read JSON file using Tauri fs API
-    const { readTextFile } = await import('@tauri-apps/plugin-fs');
-    const content = await readTextFile(jsonPath);
-    const data = JSON.parse(content);
-
-    // Transform to our NestingResult type
-    return {
-      stripWidth: data.strip_width || data.width || 0,
-      stripHeight: data.strip_height || data.height || 0,
-      utilization: data.utilization || 0,
-      itemsPlaced: data.items_placed || data.placements?.length || 0,
-      placements: (data.placements || []).map((p: any) => ({
-        itemId: p.item_id || p.id || 0,
-        x: p.x || 0,
-        y: p.y || 0,
-        rotation: p.rotation || p.angle || 0,
-      })),
-      svgPath: '', // Will be set by caller
-    };
-  } catch (error) {
-    console.error('Failed to parse nesting result:', error);
-    return null;
-  }
+interface NestingOutput {
+  instance_name: string;
+  strip_width: number;
+  strip_height: number;
+  total_items_placed: number;
+  layouts: PlacedItem[];
+  utilization: number;
+  computation_time_secs: number;
+  status?: string;
+  items_requested?: number;
+  unplaced_item_ids: number[];
+  svg_string?: string;
 }
 
+// ============================================================================
+// Main Workflow Functions
+// ============================================================================
+
 /**
- * Complete nesting workflow: Convert DXF -> Run Nesting -> Parse Results
- * This is the main function to call from the UI
+ * Complete nesting workflow: Convert DXF -> Run Nesting -> Return Results
+ *
+ * This function runs entirely in-memory without spawning external processes:
+ * 1. Read DXF files from disk
+ * 2. Convert to JSON using TypeScript DXF converter (frontend)
+ * 3. Run nesting optimization using integrated Rust engine (backend)
+ * 4. Return structured results
  */
 export async function runNestingWorkflow(
   files: DxfFile[],
   stripHeight: number = 6000,
-  partSpacing: number = 5
+  partSpacing: number = 5,
+  timeLimit: number = 60
 ): Promise<NestingWorkflowResult> {
   try {
-    // Step 1: Convert DXF files to JSON
-    // ✅ FIXED: Send raw data (path and quantity separately) to backend
-    // Backend (Rust) will handle path normalization and command building
-    // This avoids conflict between Windows drive letter colon (C:) and quantity separator (:)
-    const inputFiles = files.map((f) => ({
-      path: f.path,           // Raw path, no formatting
-      quantity: f.quantity    // Raw quantity as number
-    }));
+    console.log('Starting nesting workflow for ' + files.length + ' files...');
 
-    // Use temp directory for intermediate files
-    const tempDir = await getTempDirectory();
-    // ✅ FIXED: Use consistent Windows path separators (backslashes)
-    const nestingJsonPath = `${tempDir}\\nesting.json`;
-    const resultJsonPath = `${tempDir}\\result.json`;
-    const resultSvgPath = `${tempDir}\\result.svg`;
+    // Step 1: Read DXF file contents
+    console.log('Step 1: Reading DXF file contents...');
+    const fileContents: Array<{
+      name: string;
+      content: string;
+      quantity: number;
+    }> = [];
 
-    console.log('Step 1: Converting DXF files to JSON...');
-    console.log('Input files:', inputFiles);
-    console.log('Output path:', nestingJsonPath);
-    const conversionResult = await convertDxfToJson(inputFiles, nestingJsonPath, {
-      stripHeight,
-      partSpacing,
+    for (const file of files) {
+      try {
+        const content = await readTextFile(file.path);
+        const filename = file.path.split(/[/\\]/).pop() || 'unknown.dxf';
+
+        fileContents.push({
+          name: filename,
+          content: content,
+          quantity: file.quantity || 1,
+        });
+
+        console.log('  Read: ' + filename + ' (' + content.length + ' bytes, qty: ' + file.quantity + ')');
+      } catch (error) {
+        console.error('  Failed to read ' + file.path + ':', error);
+        throw new Error('Failed to read file: ' + file.path);
+      }
+    }
+
+    // Step 2: Convert DXF to JSON using TypeScript converter
+    console.log('Step 2: Converting DXF to JSON...');
+    const conversionResult = await convertMultipleDxf(fileContents, {
+      stripHeight: stripHeight,
+      spacing: partSpacing,
       arcSegments: 32,
+      splineSegments: 100,
+      tolerance: 0.5,
+      autoClose: true,
+      allowRotations: true,
+      problemName: 'nesting_job',
     });
 
-    console.log('Conversion result:', JSON.stringify(conversionResult, null, 2));
-
-    if (!conversionResult.success) {
-      console.error('Conversion failed with error:', conversionResult.error);
-      throw new Error(conversionResult.error || 'Conversion failed');
+    if (!conversionResult.success || !conversionResult.jsonString) {
+      const errorMsg = conversionResult.errors.join('; ') || 'DXF conversion failed';
+      console.error('Conversion failed:', errorMsg);
+      throw new Error(errorMsg);
     }
 
-    // Step 2: Run nesting optimization
-    console.log('Step 2: Running nesting optimization...');
-    const nestingResult = await runNesting(
-      nestingJsonPath,
-      resultJsonPath,
-      resultSvgPath,
-      {
-        timeout: 300, // 5 minutes
-        workers: 1,
-      }
-    );
-
-    if (!nestingResult.success) {
-      throw new Error(nestingResult.error || 'Nesting failed');
+    // Log warnings if any
+    if (conversionResult.warnings.length > 0) {
+      console.warn('Conversion warnings:', conversionResult.warnings);
     }
 
-    // Step 3: Parse result JSON
-    console.log('Step 3: Parsing results...');
-    const resultData = await parseNestingResult(resultJsonPath);
+    console.log('  Conversion successful: ' + conversionResult.stats?.totalItems + ' items, ' + conversionResult.stats?.totalPoints + ' points');
 
-    if (!resultData) {
-      throw new Error('Failed to parse nesting result');
+    // DEBUG: Save the JSON for manual inspection
+    try {
+      await writeTextFile('debug_nesting_output.json', conversionResult.jsonString, {
+        baseDir: BaseDirectory.Desktop
+      });
+      console.log('💾 Saved debug file to Desktop: debug_nesting_output.json');
+    } catch (debugError) {
+      console.warn('⚠️ Could not save debug file:', debugError);
     }
 
-    // Add SVG path to result
-    resultData.svgPath = resultSvgPath;
+    // Step 3: Run nesting optimization using integrated Rust engine
+    console.log('Step 3: Running nesting optimization with time_limit=' + timeLimit + 's...');
+    const nestingInput: NestingInput = {
+      json_input: conversionResult.jsonString,
+      time_limit: timeLimit,
+      seed: undefined,
+      // Enable early termination for faster response to timeout
+      // This reduces iterations when no improvement is found
+      use_early_termination: true,
+      n_workers: 1,
+    };
+
+    // Debug: Log the exact payload being sent to backend
+    console.log('🚀 Sending to Backend:', {
+      time_limit: nestingInput.time_limit,
+      seed: nestingInput.seed,
+      use_early_termination: nestingInput.use_early_termination,
+      n_workers: nestingInput.n_workers,
+      json_input_preview: nestingInput.json_input.substring(0, 500) + '...',
+      json_input_length: nestingInput.json_input.length,
+    });
+
+    const nestingOutput = await invoke<NestingOutput>('run_nesting_integrated', {
+      input: nestingInput,
+    });
+
+    const timeStr = nestingOutput.computation_time_secs.toFixed(2);
+    const utilStr = (nestingOutput.utilization * 100).toFixed(1);
+    const widthStr = nestingOutput.strip_width.toFixed(1);
+    const heightStr = nestingOutput.strip_height.toFixed(1);
+
+    console.log('  Nesting completed: ' + nestingOutput.total_items_placed + ' items placed in ' + timeStr + 's');
+    console.log('  Utilization: ' + utilStr + '%');
+    console.log('  Strip dimensions: ' + widthStr + ' x ' + heightStr + 'mm');
+
+    // Step 4: Transform result to UI format
+    const resultData: NestingResultType = {
+      stripWidth: nestingOutput.strip_width,
+      stripHeight: nestingOutput.strip_height,
+      utilization: nestingOutput.utilization,
+      itemsPlaced: nestingOutput.total_items_placed,
+      placements: nestingOutput.layouts.map((item) => ({
+        itemId: item.item_id,
+        x: item.position_x,
+        y: item.position_y,
+        rotation: item.rotation_degrees,
+      })),
+      svgPath: '', // No file path, using blob URL instead
+    };
+
+    // Create blob URL from SVG string if available
+    let svgUrl: string | undefined;
+    if (nestingOutput.svg_string) {
+      svgUrl = createSvgBlobUrl(nestingOutput.svg_string);
+      console.log('  SVG blob URL created');
+    }
 
     return {
       success: true,
       data: resultData,
-      svgPath: resultSvgPath,
+      svgUrl,
     };
-  } catch (error: any) {
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('Nesting workflow failed:', error);
     return {
       success: false,
-      error: error.message || 'Unknown error occurred',
+      error: errorMessage,
     };
   }
 }
 
 /**
  * Run nesting workflow with automatic batching by Material + Thickness
- * This is the MAIN function to use - it groups files and processes each batch separately
+ *
+ * Groups files by material and thickness, then processes each batch separately.
+ * This is the main function to use for production workflows.
  */
 export async function runNestingWorkflowWithBatching(
   files: DxfFile[],
@@ -249,18 +245,15 @@ export async function runNestingWorkflowWithBatching(
   partSpacing: number = 5
 ): Promise<BatchedNestingWorkflowResult> {
   try {
-    console.log(`Starting batched nesting workflow for ${files.length} files...`);
+    console.log('Starting batched nesting workflow for ' + files.length + ' files...');
 
     // Step 1: Group files by Material Group + Thickness
     const batches = new Map<string, BatchInfo>();
 
     files.forEach((file) => {
-      // Use materialGroup (or material.name) and materialThickness
       const materialGroup = file.materialGroup || file.material?.name || 'Unknown';
       const materialThickness = file.materialThickness || file.material?.thickness || 0;
-
-      // Create batch key: "MaterialGroup-Thickness"
-      const batchKey = `${materialGroup}-${materialThickness}mm`;
+      const batchKey = materialGroup + '-' + materialThickness + 'mm';
 
       if (!batches.has(batchKey)) {
         batches.set(batchKey, {
@@ -274,7 +267,7 @@ export async function runNestingWorkflowWithBatching(
       batches.get(batchKey)!.files.push(file);
     });
 
-    console.log(`Created ${batches.size} batches based on Material + Thickness`);
+    console.log('Created ' + batches.size + ' batches based on Material + Thickness');
 
     // Step 2: Process each batch separately
     const batchResults: BatchedNestingResult[] = [];
@@ -282,11 +275,8 @@ export async function runNestingWorkflowWithBatching(
     let failedBatches = 0;
 
     for (const [batchKey, batchInfo] of batches) {
-      console.log(
-        `Processing batch: ${batchKey} (${batchInfo.files.length} files)`
-      );
+      console.log('Processing batch: ' + batchKey + ' (' + batchInfo.files.length + ' files)');
 
-      // Run nesting workflow for this specific batch
       const nestingResult = await runNestingWorkflow(
         batchInfo.files,
         stripHeight,
@@ -295,10 +285,10 @@ export async function runNestingWorkflowWithBatching(
 
       if (nestingResult.success) {
         successfulBatches++;
-        console.log(`✓ Batch ${batchKey} completed successfully`);
+        console.log('Batch ' + batchKey + ' completed successfully');
       } else {
         failedBatches++;
-        console.error(`✗ Batch ${batchKey} failed: ${nestingResult.error}`);
+        console.error('Batch ' + batchKey + ' failed: ' + nestingResult.error);
       }
 
       batchResults.push({
@@ -310,9 +300,7 @@ export async function runNestingWorkflowWithBatching(
       });
     }
 
-    console.log(
-      `Batched nesting completed: ${successfulBatches}/${batches.size} successful`
-    );
+    console.log('Batched nesting completed: ' + successfulBatches + '/' + batches.size + ' successful');
 
     return {
       success: failedBatches === 0,
@@ -320,12 +308,13 @@ export async function runNestingWorkflowWithBatching(
       totalBatches: batches.size,
       successfulBatches,
       failedBatches,
-      error:
-        failedBatches > 0
-          ? `${failedBatches} batch(es) failed to complete`
-          : undefined,
+      error: failedBatches > 0
+        ? failedBatches + ' batch(es) failed to complete'
+        : undefined,
     };
-  } catch (error: any) {
+
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     console.error('Batched nesting workflow failed:', error);
     return {
       success: false,
@@ -333,25 +322,41 @@ export async function runNestingWorkflowWithBatching(
       totalBatches: 0,
       successfulBatches: 0,
       failedBatches: 0,
-      error: error.message || 'Unknown error occurred',
+      error: errorMessage,
     };
   }
 }
 
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
 /**
- * Get temporary directory path
- * Returns Windows-style path with backslashes
+ * Create a blob URL from SVG string for display in UI
  */
-async function getTempDirectory(): Promise<string> {
-  try {
-    const { appDataDir } = await import('@tauri-apps/api/path');
-    const appDir = await appDataDir();
-    // ✅ FIXED: Normalize to Windows backslashes (appDataDir may return mixed separators)
-    // Replace any forward slashes with backslashes for consistency
-    const normalizedAppDir = appDir.replace(/\//g, '\\');
-    return `${normalizedAppDir}\\temp`;
-  } catch (error) {
-    // Fallback to relative path
-    return '.\\temp';
+export function createSvgBlobUrl(svgString: string): string {
+  const blob = new Blob([svgString], { type: 'image/svg+xml' });
+  return URL.createObjectURL(blob);
+}
+
+/**
+ * Revoke a blob URL when no longer needed
+ */
+export function revokeSvgBlobUrl(url: string): void {
+  if (url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
   }
 }
+
+// ============================================================================
+// Exports
+// ============================================================================
+
+export type {
+  NestingWorkflowResult,
+  BatchedNestingResult,
+  BatchedNestingWorkflowResult,
+  NestingInput,
+  NestingOutput,
+  PlacedItem,
+};

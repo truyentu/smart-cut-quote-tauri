@@ -19,6 +19,7 @@ import HealingIcon from '@mui/icons-material/Healing';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuoteStore } from '../../stores/quoteStore';
 
@@ -29,6 +30,7 @@ const menuItems = [
   { id: 3, label: 'Part Library', icon: <LibraryBooksIcon />, path: '/library' },
   { id: 4, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
   { id: 5, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
+  { id: 6, label: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];
 
 export default function Sidebar() {

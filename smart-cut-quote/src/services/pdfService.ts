@@ -1,214 +1,503 @@
 /**
  * PDF Service
- * Generate and save PDF quotes
- * Based on IMPLEMENTATION_PLAN.md section 10
+ * Generate and save PDF quotes with professional layout
  */
 
 import jsPDF from 'jspdf';
 import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile, readTextFile } from '@tauri-apps/plugin-fs';
+import { writeFile } from '@tauri-apps/plugin-fs';
 import { DxfFile, QuoteSummary } from '../types/quote';
+import { getCompanyInfo, getAppSettings } from './database';
+import { Client as DbClient, CompanyInfo } from './database/types';
+
+// Colors
+const PRIMARY_BLUE = '#4A90D9';
 
 export interface PdfGenerationOptions {
   files: DxfFile[];
   summary: QuoteSummary;
-  nestingSvgPath?: string;
-  clientName?: string;
+  quoteNumber?: string;
+  client?: {
+    id: string;
+    name: string;
+    company?: string;
+    email?: string;
+    phone?: string;
+  };
+  clientDetails?: DbClient;
+  validUntil?: Date;
+  notes?: string;
+}
+
+/**
+ * Convert hex color to RGB
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : { r: 0, g: 0, b: 0 };
 }
 
 /**
  * Generate and save PDF quote
- * @param options - PDF generation options including files, summary, SVG path, and client name
- * @returns Promise<boolean> - Success status
  */
 export async function generateAndSavePdf(options: PdfGenerationOptions): Promise<boolean> {
-  const { files, summary, nestingSvgPath, clientName } = options;
+  const { files, summary, quoteNumber, client, clientDetails, validUntil, notes } = options;
 
   try {
-    // Step 1: Initialize PDF
+    // Load company info and settings
+    const companyInfo = await getCompanyInfo();
+    const settings = await getAppSettings();
+
+    // Initialize PDF
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
     });
 
-    let yPosition = 20;
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 15;
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin;
 
-    // Step 2: Add header
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.text('SMART CUT QUOTE', 105, yPosition, { align: 'center' });
-    yPosition += 15;
+    // ========================================
+    // HEADER SECTION
+    // ========================================
+    y = drawHeader(doc, companyInfo, quoteNumber, validUntil, settings.default_validity_days, margin, y, contentWidth);
 
-    // Step 3: Add client info and date
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    if (clientName) {
-      doc.text(`Client: ${clientName}`, 20, yPosition);
-      yPosition += 7;
-    }
+    // ========================================
+    // BILL TO / SHIP TO SECTION
+    // ========================================
+    y = drawBillToShipTo(doc, client, clientDetails, margin, y, contentWidth);
 
-    const currentDate = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-    doc.text(`Date: ${currentDate}`, 20, yPosition);
-    yPosition += 15;
+    // ========================================
+    // PARTS TABLE
+    // ========================================
+    y = drawPartsTable(doc, files, margin, y, contentWidth, pageHeight, settings.currency_symbol);
 
-    // Step 4: Add parts list section
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Parts List', 20, yPosition);
-    yPosition += 10;
+    // ========================================
+    // FOOTER SECTION (Shipping, Note, Summary)
+    // ========================================
+    y = drawFooter(doc, summary, companyInfo, notes, margin, y, contentWidth, pageHeight, settings.currency_symbol);
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-
-    // Table header
-    doc.setFont('helvetica', 'bold');
-    doc.text('Part Name', 20, yPosition);
-    doc.text('Qty', 90, yPosition);
-    doc.text('Material', 110, yPosition);
-    doc.text('Machine', 150, yPosition);
-    yPosition += 7;
-
-    // Table rows
-    doc.setFont('helvetica', 'normal');
-    files.forEach((file) => {
-      if (yPosition > 270) {
-        // Add new page if running out of space
-        doc.addPage();
-        yPosition = 20;
-      }
-
-      doc.text(file.name.length > 30 ? file.name.substring(0, 30) + '...' : file.name, 20, yPosition);
-      doc.text(file.quantity.toString(), 90, yPosition);
-      doc.text(file.material ? `${file.material.name} (${file.material.thickness}mm)` : 'N/A', 110, yPosition);
-      doc.text(file.machine || 'N/A', 150, yPosition);
-      yPosition += 7;
-    });
-
-    yPosition += 10;
-
-    // Step 5: Add cost breakdown section
-    if (yPosition > 220) {
-      doc.addPage();
-      yPosition = 20;
-    }
-
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Cost Breakdown', 20, yPosition);
-    yPosition += 10;
-
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-
-    // Cost items
-    const costItems = [
-      { label: 'Material Cost:', value: `$${summary.materialCost.toFixed(2)}` },
-      { label: 'Cutting Cost:', value: `$${summary.cuttingCost.toFixed(2)}` },
-      { label: 'Operations Cost:', value: `$${summary.operationsCost.toFixed(2)}` },
-      { label: 'Subtotal:', value: `$${summary.subtotal.toFixed(2)}` },
-      { label: 'Tax (5%):', value: `$${summary.tax.toFixed(2)}` },
-    ];
-
-    costItems.forEach((item) => {
-      doc.text(item.label, 20, yPosition);
-      doc.text(item.value, 150, yPosition, { align: 'right' });
-      yPosition += 8;
-    });
-
-    // Total with emphasis
-    yPosition += 5;
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL:', 20, yPosition);
-    doc.text(`$${summary.total.toFixed(2)}`, 150, yPosition, { align: 'right' });
-    yPosition += 15;
-
-    // Step 6: Embed nesting SVG if available
-    if (nestingSvgPath) {
-      try {
-        // Check if we need a new page
-        if (yPosition > 200) {
-          doc.addPage();
-          yPosition = 20;
-        }
-
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Nesting Layout', 20, yPosition);
-        yPosition += 10;
-
-        // Read SVG file
-        const svgContent = await readTextFile(nestingSvgPath);
-
-        // Convert SVG to data URL
-        const svgBlob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
-        const svgUrl = URL.createObjectURL(svgBlob);
-
-        // Create an image element to load the SVG
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error('Failed to load SVG'));
-          img.src = svgUrl;
-        });
-
-        // Calculate dimensions to fit on page
-        const maxWidth = 170;
-        const maxHeight = 200;
-        let imgWidth = maxWidth;
-        let imgHeight = (img.height / img.width) * maxWidth;
-
-        if (imgHeight > maxHeight) {
-          imgHeight = maxHeight;
-          imgWidth = (img.width / img.height) * maxHeight;
-        }
-
-        // Add image to PDF
-        doc.addImage(img.src, 'PNG', 20, yPosition, imgWidth, imgHeight);
-
-        // Clean up
-        URL.revokeObjectURL(svgUrl);
-      } catch (err) {
-        console.error('Failed to embed SVG in PDF:', err);
-        // Continue without SVG if it fails
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'italic');
-        doc.text('(Nesting layout not available)', 20, yPosition);
-      }
-    }
-
-    // Step 7: Save PDF
+    // ========================================
+    // SAVE PDF
+    // ========================================
     const pdfBlob = doc.output('blob');
     const pdfArrayBuffer = await pdfBlob.arrayBuffer();
     const pdfUint8Array = new Uint8Array(pdfArrayBuffer);
 
+    // Generate filename
+    const filename = quoteNumber
+      ? `${quoteNumber}.pdf`
+      : `quote_${new Date().toISOString().split('T')[0]}.pdf`;
+
     // Open save dialog
     const filePath = await save({
-      filters: [
-        {
-          name: 'PDF',
-          extensions: ['pdf'],
-        },
-      ],
-      defaultPath: `quote_${Date.now()}.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      defaultPath: filename,
     });
 
     if (!filePath) {
-      // User cancelled the save dialog
       return false;
     }
 
-    // Write PDF file
     await writeFile(filePath, pdfUint8Array);
-
     return true;
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw error;
   }
 }
+
+/**
+ * Draw header section with company info and quote details
+ */
+function drawHeader(
+  doc: jsPDF,
+  companyInfo: CompanyInfo | null,
+  quoteNumber: string | undefined,
+  validUntil: Date | undefined,
+  defaultValidityDays: number,
+  margin: number,
+  y: number,
+  contentWidth: number
+): number {
+  const blue = hexToRgb(PRIMARY_BLUE);
+
+  // Company name (large, blue)
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(blue.r, blue.g, blue.b);
+  doc.text(companyInfo?.company_name || 'Company Name', margin, y);
+
+  // Company address and contact (left side)
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+
+  let leftY = y + 8;
+  if (companyInfo?.address_line1) {
+    doc.text(companyInfo.address_line1, margin, leftY);
+    leftY += 4;
+  }
+  if (companyInfo?.address_line2 || (companyInfo?.city && companyInfo?.state)) {
+    const addr2 = companyInfo.address_line2 || `${companyInfo.city || ''} ${companyInfo.state || ''} ${companyInfo.zip || ''}`.trim();
+    doc.text(addr2, margin, leftY);
+    leftY += 4;
+  }
+  if (companyInfo?.phone) {
+    doc.text(`Phone: ${companyInfo.phone}`, margin, leftY);
+    leftY += 4;
+  }
+  if (companyInfo?.email) {
+    doc.text(`Email: ${companyInfo.email}`, margin, leftY);
+    leftY += 4;
+  }
+  if (companyInfo?.website) {
+    doc.text(companyInfo.website, margin, leftY);
+    leftY += 4;
+  }
+
+  // Quote details (right side)
+  const rightX = margin + contentWidth - 50;
+  let rightY = y;
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(50, 50, 50);
+
+  if (quoteNumber) {
+    doc.text('Quote No:', rightX, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(quoteNumber, rightX + 25, rightY);
+    rightY += 5;
+    doc.setFont('helvetica', 'bold');
+  }
+
+  doc.text('Date:', rightX, rightY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(new Date().toLocaleDateString('en-AU'), rightX + 25, rightY);
+  rightY += 5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Valid Until:', rightX, rightY);
+  doc.setFont('helvetica', 'normal');
+  const validDate = validUntil || new Date(Date.now() + defaultValidityDays * 24 * 60 * 60 * 1000);
+  doc.text(validDate.toLocaleDateString('en-AU'), rightX + 25, rightY);
+
+  return Math.max(leftY, rightY) + 10;
+}
+
+/**
+ * Draw Bill To / Ship To section
+ */
+function drawBillToShipTo(
+  doc: jsPDF,
+  client: PdfGenerationOptions['client'],
+  clientDetails: DbClient | undefined,
+  margin: number,
+  y: number,
+  contentWidth: number
+): number {
+  const blue = hexToRgb(PRIMARY_BLUE);
+  const colWidth = contentWidth / 2 - 5;
+
+  // Bill To header
+  doc.setFillColor(blue.r, blue.g, blue.b);
+  doc.rect(margin, y, colWidth, 6, 'F');
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('Bill To', margin + 3, y + 4.5);
+
+  // Ship To header
+  const shipX = margin + colWidth + 10;
+  doc.rect(shipX, y, colWidth, 6, 'F');
+  doc.text('Ship To', shipX + 3, y + 4.5);
+
+  y += 10;
+
+  // Bill To content
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(50, 50, 50);
+
+  let billY = y;
+  if (client?.name || clientDetails?.company_name) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(client?.name || clientDetails?.company_name || '', margin, billY);
+    doc.setFont('helvetica', 'normal');
+    billY += 4;
+  }
+  if (clientDetails?.billing_address_line1) {
+    doc.text(clientDetails.billing_address_line1, margin, billY);
+    billY += 4;
+  }
+  if (clientDetails?.billing_city || clientDetails?.billing_state) {
+    const cityState = `${clientDetails.billing_city || ''} ${clientDetails.billing_state || ''} ${clientDetails.billing_zip || ''}`.trim();
+    doc.text(cityState, margin, billY);
+    billY += 4;
+  }
+  if (client?.phone || clientDetails?.phone) {
+    doc.text(`Phone: ${client?.phone || clientDetails?.phone}`, margin, billY);
+    billY += 4;
+  }
+  if (client?.email || clientDetails?.email) {
+    doc.text(client?.email || clientDetails?.email || '', margin, billY);
+    billY += 4;
+  }
+
+  // Ship To content
+  let shipY = y;
+  if (client?.name || clientDetails?.company_name) {
+    doc.setFont('helvetica', 'bold');
+    doc.text(client?.name || clientDetails?.company_name || '', shipX, shipY);
+    doc.setFont('helvetica', 'normal');
+    shipY += 4;
+  }
+  if (clientDetails?.shipping_address_line1) {
+    doc.text(clientDetails.shipping_address_line1, shipX, shipY);
+    shipY += 4;
+  } else if (clientDetails?.billing_address_line1) {
+    doc.text(clientDetails.billing_address_line1, shipX, shipY);
+    shipY += 4;
+  }
+  if (clientDetails?.shipping_city || clientDetails?.shipping_state) {
+    const cityState = `${clientDetails.shipping_city || ''} ${clientDetails.shipping_state || ''} ${clientDetails.shipping_zip || ''}`.trim();
+    doc.text(cityState, shipX, shipY);
+    shipY += 4;
+  } else if (clientDetails?.billing_city || clientDetails?.billing_state) {
+    const cityState = `${clientDetails.billing_city || ''} ${clientDetails.billing_state || ''} ${clientDetails.billing_zip || ''}`.trim();
+    doc.text(cityState, shipX, shipY);
+    shipY += 4;
+  }
+
+  return Math.max(billY, shipY) + 8;
+}
+
+/**
+ * Draw parts table with thumbnails and operations
+ */
+function drawPartsTable(
+  doc: jsPDF,
+  files: DxfFile[],
+  margin: number,
+  y: number,
+  contentWidth: number,
+  pageHeight: number,
+  currencySymbol: string
+): number {
+  const blue = hexToRgb(PRIMARY_BLUE);
+
+  // Column widths
+  const cols = {
+    num: 8,
+    name: 35,
+    preview: 25,
+    material: 45,
+    qty: 15,
+    unitCost: 25,
+    totalCost: 27,
+  };
+
+  // Table header
+  doc.setFillColor(blue.r, blue.g, blue.b);
+  doc.rect(margin, y, contentWidth, 7, 'F');
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+
+  let x = margin + 2;
+  doc.text('#', x, y + 5);
+  x += cols.num;
+  doc.text('Name', x, y + 5);
+  x += cols.name;
+  doc.text('Preview', x, y + 5);
+  x += cols.preview;
+  doc.text('Material', x, y + 5);
+  x += cols.material;
+  doc.text('Qty', x, y + 5);
+  x += cols.qty;
+  doc.text('Unit Cost', x, y + 5);
+  x += cols.unitCost;
+  doc.text('Total Cost', x, y + 5);
+
+  y += 7;
+
+  // Table rows
+  doc.setTextColor(50, 50, 50);
+  doc.setFont('helvetica', 'normal');
+
+  files.forEach((file, index) => {
+    // Check if need new page
+    const rowHeight = 20 + (file.operations.length > 0 ? 4 : 0);
+    if (y + rowHeight > pageHeight - 60) {
+      doc.addPage();
+      y = margin;
+    }
+
+    // Alternating row background
+    if (index % 2 === 0) {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, y, contentWidth, rowHeight, 'F');
+    }
+
+    // Draw border
+    doc.setDrawColor(200, 200, 200);
+    doc.rect(margin, y, contentWidth, rowHeight, 'S');
+
+    const textY = y + 8;
+    x = margin + 2;
+
+    // Number
+    doc.setFontSize(8);
+    doc.text((index + 1).toString(), x, textY);
+    x += cols.num;
+
+    // Name
+    const name = file.name.length > 20 ? file.name.substring(0, 17) + '...' : file.name;
+    doc.text(name, x, textY);
+    x += cols.name;
+
+    // Preview (placeholder dotted rectangle)
+    const previewSize = 15;
+    const previewX = x + 2;
+    const previewY = y + 2;
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineDashPattern([1, 1], 0);
+    doc.rect(previewX, previewY, previewSize, previewSize, 'S');
+    doc.setLineDashPattern([], 0);
+
+    // If we have preview data (base64), try to add it
+    if (file.preview && file.preview.startsWith('data:')) {
+      try {
+        doc.addImage(file.preview, 'PNG', previewX, previewY, previewSize, previewSize);
+      } catch {
+        // Fallback: just show placeholder
+      }
+    }
+    x += cols.preview;
+
+    // Material (3 lines)
+    if (file.material) {
+      doc.setFontSize(7);
+      doc.text(file.material.name, x, textY - 2);
+      doc.text(file.material.grade, x, textY + 2);
+      doc.text(`${file.material.thickness}mm`, x, textY + 6);
+    } else {
+      doc.text('N/A', x, textY);
+    }
+    x += cols.material;
+
+    // Quantity
+    doc.setFontSize(8);
+    doc.text(file.quantity.toString(), x, textY);
+    x += cols.qty;
+
+    // Unit Cost
+    const unitCost = file.unitCost || 0;
+    doc.text(`${currencySymbol}${unitCost.toFixed(2)}`, x, textY);
+    x += cols.unitCost;
+
+    // Total Cost
+    const totalCost = file.totalCost || 0;
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${currencySymbol}${totalCost.toFixed(2)}`, x, textY);
+    doc.setFont('helvetica', 'normal');
+
+    // Operations (if any)
+    if (file.operations.length > 0) {
+      doc.setFontSize(6);
+      doc.setTextColor(100, 100, 100);
+      const opsText = `Operations: ${file.operations.join(', ')}`;
+      doc.text(opsText, margin + 10, y + rowHeight - 3);
+      doc.setTextColor(50, 50, 50);
+    }
+
+    y += rowHeight;
+  });
+
+  return y + 5;
+}
+
+/**
+ * Draw footer section with shipping, note, and summary
+ */
+function drawFooter(
+  doc: jsPDF,
+  summary: QuoteSummary,
+  companyInfo: CompanyInfo | null,
+  notes: string | undefined,
+  margin: number,
+  y: number,
+  contentWidth: number,
+  pageHeight: number,
+  currencySymbol: string
+): number {
+  // Check if need new page for footer
+  if (y + 60 > pageHeight - margin) {
+    doc.addPage();
+    y = margin;
+  }
+
+  const rightColX = margin + contentWidth - 70;
+
+  // Shipping
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(50, 50, 50);
+  doc.text('Shipping:', rightColX, y);
+  doc.text(`${currencySymbol}${summary.shipping.toFixed(2)}`, rightColX + 50, y, { align: 'right' });
+  y += 8;
+
+  // Note section
+  if (notes || companyInfo?.phone) {
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    const noteText = notes || `If you have any questions about this quote, please contact ${companyInfo?.phone || 'us'}`;
+    const noteLines = doc.splitTextToSize(noteText, 90);
+    doc.text('Note:', margin, y);
+    doc.text(noteLines, margin + 15, y);
+    y += noteLines.length * 4 + 5;
+  }
+
+  // Summary box
+  doc.setDrawColor(200, 200, 200);
+  doc.rect(rightColX - 5, y - 3, 75, 25, 'S');
+
+  // Sub Total
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(50, 50, 50);
+  doc.text('Sub Total:', rightColX, y);
+  doc.text(`${currencySymbol}${summary.subtotal.toFixed(2)}`, rightColX + 65, y, { align: 'right' });
+  y += 6;
+
+  // Tax
+  doc.text('Tax (10%):', rightColX, y);
+  doc.text(`${currencySymbol}${summary.tax.toFixed(2)}`, rightColX + 65, y, { align: 'right' });
+  y += 6;
+
+  // Total
+  const blue = hexToRgb(PRIMARY_BLUE);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(blue.r, blue.g, blue.b);
+  doc.text('Total:', rightColX, y);
+  doc.text(`${currencySymbol}${summary.total.toFixed(2)}`, rightColX + 65, y, { align: 'right' });
+
+  return y + 10;
+}
+
+export default {
+  generateAndSavePdf,
+};

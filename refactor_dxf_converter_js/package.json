@@ -1,0 +1,33 @@
+{
+  "name": "mvp-dxf-converter",
+  "version": "1.0.0",
+  "description": "MVP tool to convert DXF files to sparroWASM JSON format",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:exe": "pkg dxf-converter-cli.js --targets node18-win-x64 --output dxf-converter.exe"
+  },
+  "bin": "dxf-converter-cli.js",
+  "pkg": {
+    "assets": [
+      "src/**/*"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "outputPath": "dist-exe"
+  },
+  "dependencies": {
+    "dxf-parser": "^1.1.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "esbuild": "^0.27.0",
+    "vite": "^5.0.0",
+    "vite-plugin-pwa": "^1.1.0"
+  }
+}

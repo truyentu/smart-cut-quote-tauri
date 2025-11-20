@@ -3,7 +3,7 @@
  * Project overview and recent quotes
  */
 
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Typography, Button, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
@@ -11,15 +11,35 @@ import QuoteGrid from '../components/Dashboard/QuoteGrid';
 import StatisticsChart from '../components/Dashboard/StatisticsChart';
 import TasksList from '../components/Dashboard/TasksList';
 import NewQuoteDialog from '../components/Dialogs/NewQuoteDialog';
-import { MOCK_QUOTES } from '../data/mockData';
+import { useQuoteStore } from '../stores/quoteStore';
+import { DashboardQuote } from '../data/mockData';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [newQuoteOpen, setNewQuoteOpen] = useState(false);
+  const savedQuotes = useQuoteStore((state) => state.savedQuotes);
+  const loadAllSavedQuotes = useQuoteStore((state) => state.loadAllSavedQuotes);
+
+  // Load saved quotes on mount
+  useEffect(() => {
+    loadAllSavedQuotes();
+  }, [loadAllSavedQuotes]);
+
+  // Convert saved quotes to dashboard format
+  const dashboardQuotes: DashboardQuote[] = savedQuotes.map((q) => ({
+    id: q.id,
+    quoteNo: q.quoteNumber,
+    clientName: q.clientName,
+    company: q.company,
+    amount: q.summary?.total || 0,
+    status: q.status === 'accepted' ? 'Accepted' : 'Pending',
+    date: q.createdAt.toLocaleDateString('en-AU'),
+    createdBy: 'ADMIN',
+  }));
 
   // Split quotes into two groups
-  const manageQuotes = MOCK_QUOTES.filter((q) => q.status === 'Pending').slice(0, 5);
-  const continueQuotes = MOCK_QUOTES.filter((q) => q.status === 'Accepted').slice(0, 5);
+  const manageQuotes = dashboardQuotes.filter((q) => q.status === 'Pending').slice(0, 5);
+  const continueQuotes = dashboardQuotes.filter((q) => q.status === 'Accepted').slice(0, 5);
 
   const handleNewQuote = () => {
     setNewQuoteOpen(true);

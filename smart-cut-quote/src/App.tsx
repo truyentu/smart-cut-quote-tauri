@@ -3,7 +3,6 @@
  * Sets up routing and application layout
  */
 
-import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -13,10 +12,10 @@ import AppLayout from './components/Layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import ClientSelection from './pages/ClientSelection';
 import FileUpload from './pages/FileUpload';
-import FileHealing from './pages/FileHealing';
 import PartLibrary from './pages/PartLibrary';
 import Nesting from './pages/Nesting';
-import PdfExport from './pages/PdfExport';
+import Summary from './pages/Summary';
+import Settings from './pages/Settings';
 
 // Create MUI theme
 const theme = createTheme({
@@ -51,10 +50,10 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/client" element={<ClientSelection />} />
             <Route path="/upload" element={<FileUpload />} />
-            <Route path="/healing" element={<FileHealing />} />
             <Route path="/library" element={<PartLibrary />} />
             <Route path="/nesting" element={<Nesting />} />
-            <Route path="/export" element={<PdfExport />} />
+            <Route path="/summary" element={<Summary />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </AppLayout>
       </BrowserRouter>

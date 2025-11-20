@@ -4,7 +4,7 @@
  * Replaces old PartConfig and Summary pages with a unified DataGrid interface
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -12,52 +12,118 @@ import {
   Select,
   MenuItem,
   TextField,
-  IconButton,
   FormControl,
   InputLabel,
   SelectChangeEvent,
   Button,
   CircularProgress,
   Alert,
+  Chip,
+  Autocomplete,
+  Checkbox,
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams, GridRowSelectionModel } from '@mui/x-data-grid';
-import BuildIcon from '@mui/icons-material/Build';
-import PaletteIcon from '@mui/icons-material/Palette';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CalculateIcon from '@mui/icons-material/Calculate';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import { useQuoteStore } from '../stores/quoteStore';
-import {
-  MOCK_MACHINES,
-  MOCK_MATERIALS,
-  getMaterialGroups,
-  getMaterialGrades,
-  getMaterialThicknesses,
-  getMaterialSpec,
-} from '../data/mockData';
 import { DxfFile } from '../types/quote';
 import DxfThumbnail from '../components/Viewer/DxfThumbnail';
 import PreviewDialog from '../components/Dialogs/PreviewDialog';
 import { runNestingWorkflowWithBatching } from '../services/nestingService';
-import { calculateTotalCostForBatches, MOCK_MACHINES as PRICING_MACHINES } from '../services/pricingService';
+import {
+  getAllMaterials,
+  getAllMachines,
+  getAllOperations,
+  MaterialStock,
+  Machine as DbMachine,
+  Operation,
+} from '../services/database';
+import {
+  calculateMaterialCost,
+  calculateCuttingCost,
+  calculatePiercingCost,
+  calculateOperationsCost,
+  getSettings,
+} from '../services/pricingServiceV2';
+
+const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
+const checkedIcon = <CheckBoxIcon fontSize="small" />;
 
 export default function PartLibrary() {
   const files = useQuoteStore((state) => state.files);
   const updateFile = useQuoteStore((state) => state.updateFile);
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [previewFile, setPreviewFile] = useState<DxfFile | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculationError, setCalculationError] = useState<string | null>(null);
   const [calculationSuccess, setCalculationSuccess] = useState(false);
 
-  /**
-   * Get current costs for a file (returns existing values or 0)
-   * Real costs are calculated by running nesting workflow
-   */
-  const getCurrentCosts = useCallback((file: DxfFile): { unitCost: number; totalCost: number } => {
-    return {
-      unitCost: file.unitCost || 0,
-      totalCost: file.totalCost || 0,
+  // Database data
+  const [materials, setMaterials] = useState<MaterialStock[]>([]);
+  const [machines, setMachines] = useState<DbMachine[]>([]);
+  const [operations, setOperations] = useState<Operation[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  // Load database data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setDataLoading(true);
+        const [mats, machs, ops] = await Promise.all([
+          getAllMaterials(),
+          getAllMachines(),
+          getAllOperations(),
+        ]);
+        setMaterials(mats);
+        setMachines(machs);
+        setOperations(ops);
+      } catch (err) {
+        console.error('Failed to load database data:', err);
+        setCalculationError('Failed to load materials/machines from database');
+      } finally {
+        setDataLoading(false);
+      }
     };
+
+    loadData();
   }, []);
+
+  // Helper functions for material hierarchy from database
+  const getMaterialGroups = useCallback((): string[] => {
+    const groups = new Set(materials.map((m) => m.name));
+    return Array.from(groups).sort();
+  }, [materials]);
+
+  const getMaterialGrades = useCallback(
+    (group: string): string[] => {
+      const grades = new Set(
+        materials.filter((m) => m.name === group).map((m) => m.grade)
+      );
+      return Array.from(grades).sort();
+    },
+    [materials]
+  );
+
+  const getMaterialThicknesses = useCallback(
+    (group: string, grade: string): number[] => {
+      return materials
+        .filter((m) => m.name === group && m.grade === grade)
+        .map((m) => m.thickness)
+        .sort((a, b) => a - b);
+    },
+    [materials]
+  );
+
+  const getMaterialSpec = useCallback(
+    (group: string, grade: string, thickness: number): MaterialStock | null => {
+      return (
+        materials.find(
+          (m) => m.name === group && m.grade === grade && m.thickness === thickness
+        ) || null
+      );
+    },
+    [materials]
+  );
 
   /**
    * Update file with new values (costs are calculated via nesting workflow)
@@ -95,58 +161,89 @@ export default function PartLibrary() {
         `Nesting completed: ${batchedResult.successfulBatches}/${batchedResult.totalBatches} batches successful`
       );
 
-      // Step 2: Calculate costs using pricingService
-      const costSummary = calculateTotalCostForBatches(
-        batchedResult.batches,
-        MOCK_MATERIALS,
-        PRICING_MACHINES
-      );
+      // Step 2: Get settings for markup
+      const settings = await getSettings();
 
-      console.log('Cost calculation completed:', costSummary);
-
-      // Step 3: Update individual file costs based on batch results
-      batchedResult.batches.forEach((batch) => {
+      // Step 3: Calculate costs for each file using pricingServiceV2
+      for (const batch of batchedResult.batches) {
         if (batch.nestingResult.success && batch.nestingResult.data) {
-          batch.files.forEach((file) => {
-            // Calculate individual file cost based on material and quantity
-            const material = MOCK_MATERIALS.find(
-              (m) => m.id === file.material?.id ||
-                     (m.name === file.materialGroup && m.thickness === file.materialThickness)
+          for (const file of batch.files) {
+            // Find material from database
+            const material = materials.find(
+              (m) =>
+                m.id === file.material?.id ||
+                (m.name === file.materialGroup &&
+                  m.grade === file.materialGrade &&
+                  m.thickness === file.materialThickness)
             );
 
-            if (material && batch.nestingResult.data) {
-              // Simple per-file cost calculation
-              // (In a real app, this would be more sophisticated)
-              const materialCostPerUnit =
-                (batch.nestingResult.data.stripWidth * batch.nestingResult.data.stripHeight / 1_000_000) *
-                (material.thickness / 1000) *
-                material.density *
-                material.pricePerKg;
+            // Find machine from database
+            const machine = machines.find((m) => m.id === file.machine || m.name === file.machine);
 
+            if (material && machine && batch.nestingResult.data) {
+              // Calculate material cost
+              const materialCost = calculateMaterialCost(
+                batch.nestingResult.data.stripWidth,
+                batch.nestingResult.data.stripHeight,
+                material,
+                file.quantity
+              );
+
+              // Calculate cutting cost
+              const cutLength = file.metadata?.cutLength || 0;
+              const cuttingCost = calculateCuttingCost(
+                cutLength,
+                material.cutting_speed,
+                machine.hourly_rate,
+                file.quantity
+              );
+
+              // Calculate piercing cost
+              const pierceCount = file.metadata?.pierceCount || 1;
+              const piercingCost = calculatePiercingCost(
+                pierceCount,
+                material.pierce_cost,
+                file.quantity
+              );
+
+              // Calculate operations cost
+              const fileOperations = file.operations || [];
+              const operationsCost = calculateOperationsCost(fileOperations, operations, {
+                quantity: file.quantity,
+                area: file.metadata?.area,
+                length: cutLength / 1000,
+                count: pierceCount,
+                hourlyRate: machine.hourly_rate,
+              });
+
+              // Calculate subtotal
+              const subtotal = materialCost + cuttingCost + piercingCost + operationsCost;
+
+              // Apply markups
               const materialMarkupMultiplier = 1 + (file.materialMarkup || 0) / 100;
-              const priceMarkupMultiplier = 1 + (file.priceMarkup || 0) / 100;
+              const priceMarkupMultiplier = 1 + (file.priceMarkup || settings.default_price_markup) / 100;
 
-              const unitCost = materialCostPerUnit * materialMarkupMultiplier * priceMarkupMultiplier;
-              const totalCost = unitCost * file.quantity;
+              const totalWithMarkup = subtotal * materialMarkupMultiplier * priceMarkupMultiplier;
+              const unitCost = totalWithMarkup / file.quantity;
 
               updateFile(file.id, {
                 unitCost: Math.round(unitCost * 100) / 100,
-                totalCost: Math.round(totalCost * 100) / 100,
+                totalCost: Math.round(totalWithMarkup * 100) / 100,
               });
             }
-          });
+          }
         }
-      });
+      }
 
       setCalculationSuccess(true);
-      setTimeout(() => setCalculationSuccess(false), 5000); // Hide success message after 5s
+      setTimeout(() => setCalculationSuccess(false), 5000);
     } catch (error: any) {
       console.error('Failed to run nesting and calculate cost:', error);
       setCalculationError(error.message || 'Failed to calculate costs');
     } finally {
       setIsCalculating(false);
     }
-  }, [files, updateFile]);
+  }, [files, updateFile, materials, machines, operations]);
 
   /**
    * Render Preview Cell (thumbnail + dimensions)
@@ -208,7 +305,7 @@ export default function PartLibrary() {
           <MenuItem value="">
             <em>Select Machine</em>
           </MenuItem>
-          {MOCK_MACHINES.map((machine) => (
+          {machines.map((machine) => (
             <MenuItem key={machine.id} value={machine.id}>
               {machine.name}
             </MenuItem>
@@ -301,10 +398,10 @@ export default function PartLibrary() {
                       name: file.materialGroup,
                       grade: file.materialGrade,
                       thickness,
-                      pricePerKg: spec.pricePerKg,
+                      pricePerKg: spec.price_per_kg,
                       density: spec.density,
-                      cuttingSpeed: spec.cuttingSpeed,
-                      pierceCost: spec.pierceCost,
+                      cuttingSpeed: spec.cutting_speed,
+                      pierceCost: spec.pierce_cost,
                     },
                   });
                 }
@@ -340,17 +437,57 @@ export default function PartLibrary() {
   };
 
   /**
-   * Render Operations Cell (placeholder with icons)
+   * Render Operations Cell with multi-select
    */
   const renderOperationsCell = (params: GridRenderCellParams<DxfFile>) => {
+    const file = params.row;
+    const selectedOps = file.operations || [];
+
     return (
-      <Box sx={{ display: 'flex', gap: 0.5 }}>
-        <IconButton size="small" color="primary" title="Add Operation">
-          <BuildIcon fontSize="small" />
-        </IconButton>
-        <IconButton size="small" color="secondary" title="Paint Operation">
-          <PaletteIcon fontSize="small" />
-        </IconButton>
+      <Box sx={{ width: '100%', py: 1 }}>
+        <Autocomplete
+          multiple
+          size="small"
+          options={operations}
+          getOptionLabel={(option) => option.name}
+          value={operations.filter((op) => selectedOps.includes(op.name))}
+          onChange={(_, newValue) => {
+            handleFileUpdate(file.id, {
+              operations: newValue.map((op) => op.name),
+            });
+          }}
+          renderOption={(props, option, { selected }) => {
+            const { key, ...restProps } = props;
+            return (
+              <li key={key} {...restProps}>
+                <Checkbox
+                  icon={icon}
+                  checkedIcon={checkedIcon}
+                  style={{ marginRight: 8 }}
+                  checked={selected}
+                />
+                {option.name}
+              </li>
+            );
+          }}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => {
+              const { key, ...restProps } = getTagProps({ index });
+              return (
+                <Chip
+                  key={key}
+                  label={option.name}
+                  size="small"
+                  {...restProps}
+                />
+              );
+            })
+          }
+          renderInput={(params) => (
+            <TextField {...params} placeholder="Operations" variant="outlined" />
+          )}
+          disableCloseOnSelect
+        />
       </Box>
     );
   };
@@ -397,7 +534,7 @@ export default function PartLibrary() {
     {
       field: 'operations',
       headerName: 'Operations',
-      width: 120,
+      width: 200,
       sortable: false,
       renderCell: renderOperationsCell,
     },
@@ -438,16 +575,15 @@ export default function PartLibrary() {
     },
   ];
 
-  /**
-   * Handle cell edit commit
-   */
-  const handleCellEditCommit = useCallback(
-    (params: any) => {
-      const { id, field, value } = params;
-      handleFileUpdate(id as string, { [field]: value });
-    },
-    [handleFileUpdate]
-  );
+  // Show loading state while fetching database data
+  if (dataLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Loading materials and machines...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>

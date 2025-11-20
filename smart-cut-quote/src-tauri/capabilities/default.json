@@ -7,6 +7,13 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "fs:default"
+    "fs:default",
+    "fs:allow-desktop-write",
+    "fs:allow-write-text-file",
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-close"
   ]
 }

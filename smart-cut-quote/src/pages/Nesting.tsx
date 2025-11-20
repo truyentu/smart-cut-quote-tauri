@@ -36,6 +36,7 @@ export default function Nesting() {
   const [error, setError] = useState<string | null>(null);
   const [stripHeight, setStripHeight] = useState<number>(6000);
   const [partSpacing, setPartSpacing] = useState<number>(5);
+  const [timeLimit, setTimeLimit] = useState<number>(60);
 
   const handleStartNesting = async () => {
     if (files.length === 0) {
@@ -48,12 +49,12 @@ export default function Nesting() {
     setSvgPath(null);
 
     try {
-      const result = await runNestingWorkflow(files, stripHeight, partSpacing);
+      const result = await runNestingWorkflow(files, stripHeight, partSpacing, timeLimit);
 
-      if (result.success && result.data && result.svgPath) {
+      if (result.success && result.data && result.svgUrl) {
         // Save result to store
         setNestingResult(result.data);
-        setSvgPath(result.svgPath);
+        setSvgPath(result.svgUrl);
         setError(null);
       } else {
         setError(result.error || 'Nesting failed with unknown error');
@@ -118,6 +119,16 @@ export default function Nesting() {
             onChange={(e) => setPartSpacing(Number(e.target.value))}
             fullWidth
             disabled={loading}
+          />
+
+          <TextField
+            label="Time Limit (seconds)"
+            type="number"
+            value={timeLimit}
+            onChange={(e) => setTimeLimit(Number(e.target.value))}
+            fullWidth
+            disabled={loading}
+            helperText="Lower = faster, higher = better optimization"
           />
 
           <Button

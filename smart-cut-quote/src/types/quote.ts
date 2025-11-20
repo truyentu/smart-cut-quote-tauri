@@ -77,6 +77,7 @@ export interface QuoteSummary {
   materialCost: number;
   cuttingCost: number;
   operationsCost: number;
+  shipping: number;
   subtotal: number;
   tax: number;
   total: number;

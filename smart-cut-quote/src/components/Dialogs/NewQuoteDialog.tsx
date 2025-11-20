@@ -3,7 +3,7 @@
  * Dialog for selecting or creating a client to start a new quote
  */
 
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,9 +18,9 @@ import {
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { Client } from '../../types/quote';
-import { MOCK_CLIENTS } from '../../data/mockData';
 import { useQuoteStore } from '../../stores/quoteStore';
 import AddClientDialog from './AddClientDialog';
+import { getAllClients, createClient, ClientInput } from '../../services/database';
 
 interface NewQuoteDialogProps {
   open: boolean;
@@ -31,17 +31,48 @@ interface NewQuoteDialogProps {
 export default function NewQuoteDialog({ open, onClose, onNext }: NewQuoteDialogProps) {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [addClientOpen, setAddClientOpen] = useState(false);
-  const [clients, setClients] = useState<Client[]>(MOCK_CLIENTS);
+  const [clients, setClients] = useState<Client[]>([]);
   const setClient = useQuoteStore((state) => state.setClient);
+  const resetQuote = useQuoteStore((state) => state.resetQuote);
+
+  // Load clients from database
+  const loadClients = useCallback(async () => {
+    try {
+      const dbClients = await getAllClients();
+      const mappedClients: Client[] = dbClients.map((c) => ({
+        id: c.id,
+        name: c.company_name,
+        company: c.company_name,
+        email: c.email,
+        phone: c.phone,
+      }));
+      setClients(mappedClients);
+    } catch (err) {
+      console.error('Failed to load clients:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      loadClients();
+    }
+  }, [open, loadClients]);
 
   const handleClientChange = (_event: any, value: Client | null) => {
     setSelectedClient(value);
   };
 
-  const handleAddClient = (newClient: Client) => {
-    // Add new client to the list
-    setClients((prev) => [...prev, newClient]);
-    // Auto-select the newly created client
+  const handleSaveClient = async (clientInput: ClientInput) => {
+    const newClientId = await createClient(clientInput);
+    const newClient: Client = {
+      id: newClientId,
+      name: clientInput.company_name,
+      company: clientInput.company_name,
+      email: clientInput.email,
+      phone: clientInput.phone,
+    };
+    // Reload clients and select new one
+    await loadClients();
     setSelectedClient(newClient);
     setAddClientOpen(false);
   };
@@ -52,7 +83,8 @@ export default function NewQuoteDialog({ open, onClose, onNext }: NewQuoteDialog
       return;
     }
 
-    // Save client to store
+    // Reset quote state and set new client
+    resetQuote();
     setClient(selectedClient);
 
     // Close dialog and proceed
@@ -145,7 +177,7 @@ export default function NewQuoteDialog({ open, onClose, onNext }: NewQuoteDialog
         </DialogActions>
       </Dialog>
 
-      <AddClientDialog open={addClientOpen} onClose={() => setAddClientOpen(false)} onAddClient={handleAddClient} />
+      <AddClientDialog open={addClientOpen} onClose={() => setAddClientOpen(false)} onSave={handleSaveClient} />
     </>
   );
 }

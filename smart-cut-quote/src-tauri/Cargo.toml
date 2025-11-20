@@ -22,6 +22,18 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2.4.2"
 tauri-plugin-fs = "2.4.4"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
 
+# Nesting engine dependencies
+sparrow = { git = "https://github.com/JeroenGar/sparrow.git", rev = "04f54ff77fd9b614311879e8c62ee4e13294165e", features = ["only_final_svg"] }
+jagua-rs = { git = "https://github.com/JeroenGar/jagua-rs.git", rev = "877aaa3c3217f0dd2b6f1c8af8d3e53d4023e422", features = ["spp"] }
+anyhow = "1.0"
+log = "0.4"
+fern = "0.7"
+rand = "0.9"
+rand_xoshiro = "0.7.0"
+regex = "1.10"

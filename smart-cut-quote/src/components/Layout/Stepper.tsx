@@ -1,48 +1,118 @@
 /**
  * Stepper component - Progress indicator for quote stages
+ * 4 icons: Upload → Library → Nesting → Summary
+ * Dashboard is not included in stepper
  */
 
-import React from 'react';
-import {
-  Box,
-  Stepper as MuiStepper,
-  Step,
-  StepLabel,
-  StepButton
-} from '@mui/material';
-import { useQuoteStore } from '../../stores/quoteStore';
-import { useNavigate } from 'react-router-dom';
+import { Box, styled } from '@mui/material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import SettingsIcon from '@mui/icons-material/Settings';
+import GridViewIcon from '@mui/icons-material/GridView';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 const steps = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Upload', path: '/upload' },
-  { label: 'Healing', path: '/healing' },
-  { label: 'Library', path: '/library' },
-  { label: 'Nesting', path: '/nesting' },
-  { label: 'Export', path: '/export' },
+  { label: 'Upload', path: '/upload', icon: UploadFileIcon },
+  { label: 'Library', path: '/library', icon: SettingsIcon },
+  { label: 'Nesting', path: '/nesting', icon: GridViewIcon },
+  { label: 'Summary', path: '/summary', icon: DescriptionIcon },
 ];
+
+const StepperContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: theme.spacing(2, 3),
+  backgroundColor: '#f8f9fa',
+  borderBottom: '1px solid #e0e0e0',
+}));
+
+const StepItem = styled(Box)<{ active?: boolean; completed?: boolean }>(
+  ({ active, completed }) => ({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    cursor: 'pointer',
+    padding: '8px 16px',
+    borderRadius: '8px',
+    transition: 'all 0.2s ease',
+    opacity: active ? 1 : completed ? 0.8 : 0.4,
+    '&:hover': {
+      opacity: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    },
+  })
+);
+
+const IconWrapper = styled(Box)<{ active?: boolean }>(({ active }) => ({
+  width: 48,
+  height: 48,
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: active ? '#1976d2' : '#e0e0e0',
+  color: active ? '#fff' : '#666',
+  marginBottom: 4,
+  transition: 'all 0.2s ease',
+  '& svg': {
+    fontSize: 24,
+  },
+}));
+
+const StepLabel = styled('span')<{ active?: boolean }>(({ active }) => ({
+  fontSize: 12,
+  fontWeight: active ? 600 : 400,
+  color: active ? '#1976d2' : '#666',
+}));
+
+const Connector = styled(Box)<{ completed?: boolean }>(({ completed }) => ({
+  width: 60,
+  height: 2,
+  backgroundColor: completed ? '#1976d2' : '#e0e0e0',
+  margin: '0 8px',
+  marginBottom: 20,
+}));
 
 export default function Stepper() {
   const navigate = useNavigate();
-  const currentStage = useQuoteStore((state) => state.currentStage);
-  const setStage = useQuoteStore((state) => state.setStage);
+  const location = useLocation();
 
-  const handleStep = (step: number, path: string) => {
-    setStage(step);
+  // Find current step index based on path
+  const currentStepIndex = steps.findIndex((step) => step.path === location.pathname);
+
+  // Don't show stepper on dashboard or settings
+  if (location.pathname === '/' || location.pathname === '/settings') {
+    return null;
+  }
+
+  const handleStep = (path: string) => {
     navigate(path);
   };
 
   return (
-    <Box sx={{ width: '100%', py: 2, px: 3, backgroundColor: '#f5f5f5' }}>
-      <MuiStepper activeStep={currentStage} alternativeLabel>
-        {steps.map((step, index) => (
-          <Step key={step.label}>
-            <StepButton onClick={() => handleStep(index, step.path)}>
-              <StepLabel>{step.label}</StepLabel>
-            </StepButton>
-          </Step>
-        ))}
-      </MuiStepper>
-    </Box>
+    <StepperContainer>
+      {steps.map((step, index) => {
+        const Icon = step.icon;
+        const isActive = index === currentStepIndex;
+        const isCompleted = index < currentStepIndex;
+
+        return (
+          <Box key={step.label} sx={{ display: 'flex', alignItems: 'center' }}>
+            <StepItem
+              active={isActive}
+              completed={isCompleted}
+              onClick={() => handleStep(step.path)}
+            >
+              <IconWrapper active={isActive || isCompleted}>
+                <Icon />
+              </IconWrapper>
+              <StepLabel active={isActive}>{step.label}</StepLabel>
+            </StepItem>
+            {index < steps.length - 1 && <Connector completed={isCompleted} />}
+          </Box>
+        );
+      })}
+    </StepperContainer>
   );
 }

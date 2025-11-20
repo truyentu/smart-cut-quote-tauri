@@ -74,7 +74,7 @@ export function calculateCuttingCost(
  */
 export function calculateOperationsCost(
   operations: string[],
-  material: Material,
+  _material: Material,
   quantity: number
 ): number {
   // Placeholder: Each operation costs $10
@@ -118,7 +118,7 @@ export function calculateTotalCost(
     });
 
     // Calculate material cost per Material + Thickness group
-    partsByMaterialAndThickness.forEach((partsGroup, groupKey) => {
+    partsByMaterialAndThickness.forEach((partsGroup, _groupKey) => {
       const material = materials.find(
         (m) => m.id === partsGroup[0]?.material?.id
       );
@@ -182,6 +182,7 @@ export function calculateTotalCost(
     materialCost: Math.round(totalMaterialCost * 100) / 100,
     cuttingCost: Math.round(totalCuttingCost * 100) / 100,
     operationsCost: Math.round(totalOperationsCost * 100) / 100,
+    shipping: 0,
     subtotal: Math.round(subtotal * 100) / 100,
     tax: Math.round(tax * 100) / 100,
     total: Math.round(total * 100) / 100,
@@ -272,6 +273,7 @@ export function calculateTotalCostForBatches(
     materialCost: Math.round(totalMaterialCost * 100) / 100,
     cuttingCost: Math.round(totalCuttingCost * 100) / 100,
     operationsCost: Math.round(totalOperationsCost * 100) / 100,
+    shipping: 0,
     subtotal: Math.round(subtotal * 100) / 100,
     tax: Math.round(tax * 100) / 100,
     total: Math.round(total * 100) / 100,
