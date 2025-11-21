@@ -48,8 +48,8 @@ export async function createMaterial(input: MaterialStockInput): Promise<string>
     `INSERT INTO material_stock (
       id, name, grade, thickness, sheet_width, sheet_max_length,
       price_per_kg, density, quantity_in_stock, min_quantity,
-      cutting_speed, pierce_time, pierce_cost, is_active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      cutting_speed, pierce_time, pierce_cost, cut_price_per_meter, is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
     [
       id,
       input.name,
@@ -64,6 +64,7 @@ export async function createMaterial(input: MaterialStockInput): Promise<string>
       input.cutting_speed || 3000,
       input.pierce_time || 0.5,
       input.pierce_cost || 0.15,
+      input.cut_price_per_meter || 0,
     ]
   );
 
@@ -124,6 +125,10 @@ export async function updateMaterial(id: string, input: Partial<MaterialStockInp
   if (input.pierce_cost !== undefined) {
     updates.push('pierce_cost = ?');
     values.push(input.pierce_cost);
+  }
+  if (input.cut_price_per_meter !== undefined) {
+    updates.push('cut_price_per_meter = ?');
+    values.push(input.cut_price_per_meter);
   }
 
   if (updates.length === 0) return;

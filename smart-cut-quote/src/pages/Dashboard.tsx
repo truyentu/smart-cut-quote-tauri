@@ -1,18 +1,18 @@
 /**
  * Dashboard page - Stage 0
- * Project overview and recent quotes
+ * Project overview with draft quotes, active quotes, and customer analytics
  */
 
 import { useState, useEffect } from 'react';
-import { Box, Typography, Button, Grid } from '@mui/material';
+import { Box, Typography, Button, Grid, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import QuoteGrid from '../components/Dashboard/QuoteGrid';
-import StatisticsChart from '../components/Dashboard/StatisticsChart';
-import TasksList from '../components/Dashboard/TasksList';
+import CustomerAnalytics from '../components/Dashboard/CustomerAnalytics';
 import NewQuoteDialog from '../components/Dialogs/NewQuoteDialog';
 import { useQuoteStore } from '../stores/quoteStore';
 import { DashboardQuote } from '../data/mockData';
+import type { QuoteStatus, ProductionStatus } from '../types/quote';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -32,14 +32,41 @@ export default function Dashboard() {
     clientName: q.clientName,
     company: q.company,
     amount: q.summary?.total || 0,
-    status: q.status === 'accepted' ? 'Accepted' : 'Pending',
+    status: (q.status || 'draft') as QuoteStatus,
+    productionStatus: (q.productionStatus || null) as ProductionStatus,
     date: q.createdAt.toLocaleDateString('en-AU'),
     createdBy: 'ADMIN',
   }));
 
-  // Split quotes into two groups
-  const manageQuotes = dashboardQuotes.filter((q) => q.status === 'Pending').slice(0, 5);
-  const continueQuotes = dashboardQuotes.filter((q) => q.status === 'Accepted').slice(0, 5);
+  // Split quotes into three sections per the documentation
+
+  // Section 1: Draft Quotes (limit 50)
+  const draftQuotes = dashboardQuotes
+    .filter((q) => q.status === 'draft')
+    .slice(0, 50);
+
+  // Section 2: Active Quotes with priority sorting (limit 100)
+  // Priority order as specified in documentation
+  const activeQuotes = dashboardQuotes
+    .filter((q) => q.status !== 'draft')
+    .sort((a, b) => {
+      const getPriority = (quote: DashboardQuote): number => {
+        // Priority 1: Accepted waiting for production
+        if (quote.status === 'accepted' && !quote.productionStatus) return 1;
+        // Priority 2: In production
+        if (quote.productionStatus === 'in_production') return 2;
+        // Priority 3: Sent (waiting client response)
+        if (quote.status === 'sent') return 3;
+        // Priority 4: Rejected
+        if (quote.status === 'rejected') return 4;
+        // Priority 5: Completed
+        if (quote.productionStatus === 'completed') return 5;
+        return 6;
+      };
+
+      return getPriority(a) - getPriority(b);
+    })
+    .slice(0, 100);
 
   const handleNewQuote = () => {
     setNewQuoteOpen(true);
@@ -60,27 +87,36 @@ export default function Dashboard() {
         </Button>
       </Box>
 
-      <Grid container spacing={3}>
-        {/* Top Left: Manage Quotes (Pending) */}
-        <Grid size={{ xs: 12, lg: 6 }} sx={{ display: 'flex' }}>
-          <QuoteGrid title="Manage Quotes" data={manageQuotes} />
-        </Grid>
+      {/* Section 1: Draft Quotes */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Draft Quotes ({draftQuotes.length})
+        </Typography>
+        <QuoteGrid title="Recent Drafts" data={draftQuotes} />
+      </Box>
 
-        {/* Top Right: Continue Quotes (Accepted) */}
-        <Grid size={{ xs: 12, lg: 6 }} sx={{ display: 'flex' }}>
-          <QuoteGrid title="Recent Accepted Quotes" data={continueQuotes} />
-        </Grid>
+      <Divider sx={{ my: 4 }} />
 
-        {/* Bottom Left: Statistics Chart */}
-        <Grid size={{ xs: 12, lg: 6 }} sx={{ display: 'flex' }}>
-          <StatisticsChart />
-        </Grid>
+      {/* Section 2: Active Quotes (Priority Sorted) */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Active Quotes ({activeQuotes.length})
+        </Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+          Priority: Accepted → In Production → Sent → Rejected → Completed
+        </Typography>
+        <QuoteGrid title="All Active Quotes" data={activeQuotes} />
+      </Box>
 
-        {/* Bottom Right: Tasks List */}
-        <Grid size={{ xs: 12, lg: 6 }} sx={{ display: 'flex' }}>
-          <TasksList />
-        </Grid>
-      </Grid>
+      <Divider sx={{ my: 4 }} />
+
+      {/* Section 3: Customer Analytics */}
+      <Box>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Customer Analytics
+        </Typography>
+        <CustomerAnalytics />
+      </Box>
 
       <NewQuoteDialog open={newQuoteOpen} onClose={() => setNewQuoteOpen(false)} onNext={handleNext} />
     </Box>

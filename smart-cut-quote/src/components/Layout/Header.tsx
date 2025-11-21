@@ -9,6 +9,9 @@ import SaveIcon from '@mui/icons-material/Save';
 import SettingsIcon from '@mui/icons-material/Settings';
 
 export default function Header() {
+  // TODO: Replace placeholder with actual licensed company name from settings/database
+  const licensedCompanyName = '[Company Name]';
+
   return (
     <AppBar
       position="static"
@@ -16,9 +19,15 @@ export default function Header() {
       elevation={1}
       sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
     >
-      <Toolbar>
+      <Toolbar sx={{ minHeight: 80, height: 80 }}>
+        {/* Licensed to company name - Center */}
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Smart Cut Quote
+          <Box component="span" sx={{ fontWeight: 400, color: 'text.secondary' }}>
+            Licensed to:{' '}
+          </Box>
+          <Box component="span" sx={{ fontWeight: 600 }}>
+            {licensedCompanyName}
+          </Box>
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1 }}>

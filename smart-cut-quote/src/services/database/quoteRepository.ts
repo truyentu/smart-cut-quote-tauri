@@ -265,6 +265,111 @@ export async function getQuoteStats(): Promise<{
   return result;
 }
 
+/**
+ * Start production for a quote
+ * Sets production_status to 'in_production' and records start time
+ */
+export async function startProduction(quoteId: string): Promise<void> {
+  const sql = `
+    UPDATE quotes
+    SET production_status = 'in_production',
+        production_started_at = datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = ?
+  `;
+  await execute(sql, [quoteId]);
+}
+
+/**
+ * Complete production for a quote
+ * Sets production_status to 'completed' and records completion time
+ */
+export async function completeProduction(quoteId: string): Promise<void> {
+  const sql = `
+    UPDATE quotes
+    SET production_status = 'completed',
+        production_completed_at = datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = ?
+  `;
+  await execute(sql, [quoteId]);
+}
+
+/**
+ * Get draft quotes (not sent to client yet)
+ * Limited to 50 most recent by default
+ */
+export async function getDraftQuotes(limit: number = 50): Promise<Quote[]> {
+  const sql = `
+    SELECT * FROM quotes
+    WHERE status = 'draft' AND deleted = 0
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `;
+  return query<Quote>(sql, [limit]);
+}
+
+/**
+ * Get active quotes with priority sorting
+ * Includes: sent, accepted quotes (excluding completed/rejected)
+ * Priority order:
+ * 1. Accepted waiting for production
+ * 2. In production
+ * 3. Sent (waiting client response)
+ * 4. Rejected
+ * 5. Completed
+ */
+export async function getActiveQuotes(limit: number = 100): Promise<Quote[]> {
+  const sql = `
+    SELECT * FROM quotes
+    WHERE status IN ('sent', 'accepted', 'rejected')
+      AND deleted = 0
+    ORDER BY
+      -- Priority 1: Accepted waiting for production
+      CASE WHEN status = 'accepted' AND production_status IS NULL THEN 1
+      -- Priority 2: In production
+      WHEN production_status = 'in_production' THEN 2
+      -- Priority 3: Sent (waiting client response)
+      WHEN status = 'sent' THEN 3
+      -- Priority 4: Rejected
+      WHEN status = 'rejected' THEN 4
+      -- Priority 5: Completed
+      WHEN production_status = 'completed' THEN 5
+      ELSE 6 END,
+      updated_at DESC
+    LIMIT ?
+  `;
+  return query<Quote>(sql, [limit]);
+}
+
+/**
+ * Soft delete a quote (mark as deleted instead of removing)
+ */
+export async function softDeleteQuote(quoteId: string): Promise<void> {
+  const sql = `
+    UPDATE quotes
+    SET deleted = 1,
+        deleted_at = datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = ?
+  `;
+  await execute(sql, [quoteId]);
+}
+
+/**
+ * Restore a soft-deleted quote
+ */
+export async function restoreQuote(quoteId: string): Promise<void> {
+  const sql = `
+    UPDATE quotes
+    SET deleted = 0,
+        deleted_at = NULL,
+        updated_at = datetime('now')
+    WHERE id = ?
+  `;
+  await execute(sql, [quoteId]);
+}
+
 export default {
   getAllQuotes,
   getQuotesByStatus,
@@ -279,4 +384,13 @@ export default {
   duplicateQuote,
   searchQuotes,
   getQuoteStats,
+  // Production tracking
+  startProduction,
+  completeProduction,
+  // Dashboard queries
+  getDraftQuotes,
+  getActiveQuotes,
+  // Soft delete
+  softDeleteQuote,
+  restoreQuote,
 };

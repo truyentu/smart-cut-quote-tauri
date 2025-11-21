@@ -28,6 +28,7 @@ export interface DxfFile {
   priceMarkup?: number; // % markup on total price
   unitCost?: number; // Calculated unit cost
   totalCost?: number; // Calculated total cost (unitCost * quantity)
+  selected?: boolean; // Whether this file is selected for nesting and quoting
 }
 
 export interface NestingResult {
@@ -37,6 +38,7 @@ export interface NestingResult {
   itemsPlaced: number;
   placements: Placement[];
   svgPath: string;
+  svgString?: string; // SVG content for recreating blob URL after database load
 }
 
 export interface Placement {
@@ -55,6 +57,7 @@ export interface Material {
   density: number;
   cuttingSpeed: number;
   pierceCost: number;
+  cutPricePerMeter: number; // Price per meter for length-based cutting cost
 }
 
 export interface Machine {
@@ -83,12 +86,38 @@ export interface QuoteSummary {
   total: number;
 }
 
+// Quote lifecycle status
+export type QuoteStatus =
+  | 'draft'      // Nháp - chưa gửi khách
+  | 'sent'       // Đã gửi khách - chờ phản hồi
+  | 'accepted'   // Khách chấp nhận báo giá
+  | 'rejected';  // Khách từ chối không cắt
+
+// Production workflow status (separate from quote status)
+export type ProductionStatus =
+  | 'in_production' // Đang sản xuất
+  | 'completed'     // Hoàn thành sản xuất
+  | null;           // Chưa vào sản xuất
+
 export interface Quote {
   id: string;
   client: Client;
   files: DxfFile[];
   nestingResult?: NestingResult;
   summary?: QuoteSummary;
+
+  // Quote status tracking
+  status: QuoteStatus;
+
+  // Production tracking (separate workflow)
+  productionStatus: ProductionStatus;
+  productionStartedAt?: Date;
+  productionCompletedAt?: Date;
+
+  // Soft delete for archiving
+  deleted: boolean;
+  deletedAt?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }

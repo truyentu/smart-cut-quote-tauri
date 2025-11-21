@@ -49,18 +49,28 @@ export default function ClientSelection() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const setClient = useQuoteStore((state) => state.setClient);
+  const currentClient = useQuoteStore((state) => state.client);
+  const currentQuoteId = useQuoteStore((state) => state.currentQuoteId);
 
   const loadClients = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getAllClients();
       setClients(data);
+
+      // If editing, pre-select the current client
+      if (currentClient && currentClient.id) {
+        const existingClient = data.find(c => c.id === currentClient.id);
+        if (existingClient) {
+          setSelectedClient(existingClient);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load clients');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentClient]);
 
   useEffect(() => {
     loadClients();
@@ -97,6 +107,12 @@ export default function ClientSelection() {
       <Typography variant="h4" gutterBottom>
         Client Selection
       </Typography>
+
+      {currentQuoteId && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Editing quote - you can change the client or keep the current selection
+        </Alert>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

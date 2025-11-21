@@ -391,6 +391,7 @@ export const MOCK_MATERIALS: Material[] = (() => {
           density: spec.density,
           cuttingSpeed: spec.cuttingSpeed,
           pierceCost: spec.pierceCost,
+          cutPricePerMeter: 1.50, // Default value for mock data
         });
       });
     });
@@ -483,7 +484,8 @@ export interface DashboardQuote {
   clientName: string;
   company: string;
   amount: number;
-  status: 'Pending' | 'Accepted';
+  status: 'draft' | 'sent' | 'accepted' | 'rejected';
+  productionStatus?: 'in_production' | 'completed' | null;
   date: string;
   createdBy: string;
 }

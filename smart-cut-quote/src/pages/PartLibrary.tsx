@@ -35,6 +35,7 @@ import {
   getAllMaterials,
   getAllMachines,
   getAllOperations,
+  getNestingSettings,
   MaterialStock,
   Machine as DbMachine,
   Operation,
@@ -46,6 +47,7 @@ import {
   calculateOperationsCost,
   getSettings,
 } from '../services/pricingServiceV2';
+import { generateDxfThumbnail } from '../services/thumbnailService';
 
 const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
 const checkedIcon = <CheckBoxIcon fontSize="small" />;
@@ -53,6 +55,8 @@ const checkedIcon = <CheckBoxIcon fontSize="small" />;
 export default function PartLibrary() {
   const files = useQuoteStore((state) => state.files);
   const updateFile = useQuoteStore((state) => state.updateFile);
+  const setNestingResult = useQuoteStore((state) => state.setNestingResult);
+  const setBatchedNestingResults = useQuoteStore((state) => state.setBatchedNestingResults);
   const [previewFile, setPreviewFile] = useState<DxfFile | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculationError, setCalculationError] = useState<string | null>(null);
@@ -144,13 +148,26 @@ export default function PartLibrary() {
     setCalculationSuccess(false);
 
     try {
-      console.log('Starting nesting workflow with batching...');
+      // Filter only selected files
+      const selectedFiles = files.filter((f) => f.selected !== false);
 
-      // Step 1: Run nesting workflow with automatic batching
+      if (selectedFiles.length === 0) {
+        setCalculationError('No files selected. Please select files to nest and calculate costs.');
+        setIsCalculating(false);
+        return;
+      }
+
+      console.log(`Starting nesting workflow with ${selectedFiles.length} selected files...`);
+
+      // Step 1: Load nesting settings from database
+      const nestingSettings = await getNestingSettings();
+      console.log('Using nesting settings:', nestingSettings);
+
+      // Step 2: Run nesting workflow with automatic batching using saved settings
       const batchedResult = await runNestingWorkflowWithBatching(
-        files,
-        6000, // stripHeight: 6000mm
-        5     // partSpacing: 5mm
+        selectedFiles,
+        nestingSettings.stripHeight,
+        nestingSettings.partSpacing
       );
 
       if (!batchedResult.success) {
@@ -161,7 +178,7 @@ export default function PartLibrary() {
         `Nesting completed: ${batchedResult.successfulBatches}/${batchedResult.totalBatches} batches successful`
       );
 
-      // Step 2: Get settings for markup
+      // Step 3: Get settings for markup
       const settings = await getSettings();
 
       // Step 3: Calculate costs for each file using pricingServiceV2
@@ -191,10 +208,11 @@ export default function PartLibrary() {
 
               // Calculate cutting cost
               const cutLength = file.metadata?.cutLength || 0;
+              // Calculate price per meter from cutting speed and hourly rate
+              const cutPricePerMeter = (machine.hourly_rate / material.cutting_speed) / 60; // $/meter
               const cuttingCost = calculateCuttingCost(
                 cutLength,
-                material.cutting_speed,
-                machine.hourly_rate,
+                cutPricePerMeter,
                 file.quantity
               );
 
@@ -226,13 +244,39 @@ export default function PartLibrary() {
               const totalWithMarkup = subtotal * materialMarkupMultiplier * priceMarkupMultiplier;
               const unitCost = totalWithMarkup / file.quantity;
 
+              // Generate thumbnail for PDF export
+              const preview = await generateDxfThumbnail(file.path, 80);
+
               updateFile(file.id, {
                 unitCost: Math.round(unitCost * 100) / 100,
                 totalCost: Math.round(totalWithMarkup * 100) / 100,
+                preview: preview || undefined, // Store base64 thumbnail
               });
             }
           }
         }
+      }
+
+      // ✅ SAVE BATCHED NESTING RESULTS TO STORE
+      console.log('💾 Saving batched nesting results to store...');
+      setBatchedNestingResults(batchedResult.batches);
+
+      // ✅ SELECT BEST BATCH TO DISPLAY IN NESTING PAGE
+      // Find batch with highest utilization
+      const bestBatch = batchedResult.batches.reduce((best, current) => {
+        if (!current.nestingResult.data) return best;
+        if (!best || !best.nestingResult.data) return current;
+        return current.nestingResult.data.utilization > best.nestingResult.data.utilization
+          ? current
+          : best;
+      }, batchedResult.batches[0]);
+
+      // Save best batch result to main nesting store
+      if (bestBatch && bestBatch.nestingResult.success && bestBatch.nestingResult.data) {
+        console.log(
+          `✅ Selected best batch: ${bestBatch.batchKey} (${(bestBatch.nestingResult.data.utilization * 100).toFixed(1)}% utilization)`
+        );
+        setNestingResult(bestBatch.nestingResult.data, bestBatch.nestingResult.svgUrl || null);
       }
 
       setCalculationSuccess(true);
@@ -243,7 +287,7 @@ export default function PartLibrary() {
     } finally {
       setIsCalculating(false);
     }
-  }, [files, updateFile, materials, machines, operations]);
+  }, [files, updateFile, materials, machines, operations, setNestingResult, setBatchedNestingResults]);
 
   /**
    * Render Preview Cell (thumbnail + dimensions)
@@ -402,6 +446,7 @@ export default function PartLibrary() {
                       density: spec.density,
                       cuttingSpeed: spec.cutting_speed,
                       pierceCost: spec.pierce_cost,
+                      cutPricePerMeter: 0, // Not used, calculated from cutting_speed
                     },
                   });
                 }
@@ -585,6 +630,9 @@ export default function PartLibrary() {
     );
   }
 
+  // Validate files array before rendering DataGrid
+  const validFiles = Array.isArray(files) ? files.filter((f) => f && typeof f === 'object' && f.id) : [];
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* Header */}
@@ -599,7 +647,7 @@ export default function PartLibrary() {
             size="large"
             startIcon={isCalculating ? <CircularProgress size={20} color="inherit" /> : <CalculateIcon />}
             onClick={handleRunNestingAndCalculateCost}
-            disabled={isCalculating || files.length === 0}
+            disabled={isCalculating || validFiles.length === 0}
           >
             {isCalculating ? 'Calculating...' : 'Run Nesting & Calculate Cost'}
           </Button>
@@ -625,45 +673,53 @@ export default function PartLibrary() {
 
       {/* DataGrid */}
       <Paper sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <DataGrid
-          rows={files}
-          columns={columns}
-          checkboxSelection
-          disableRowSelectionOnClick
-          rowHeight={120}
-          processRowUpdate={(newRow) => {
-            handleFileUpdate(newRow.id, newRow);
-            return newRow;
-          }}
-          onProcessRowUpdateError={(error) => {
-            console.error('Row update error:', error);
-          }}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 25 },
-            },
-          }}
-          pageSizeOptions={[10, 25, 50, 100]}
-          sx={{
-            '& .MuiDataGrid-cell': {
-              padding: 1,
-            },
-          }}
-        />
+        {validFiles.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, gap: 2 }}>
+            <Typography color="text.secondary" variant="h6">
+              No parts uploaded yet. Please upload DXF files first.
+            </Typography>
+          </Box>
+        ) : (
+          <DataGrid
+            rows={validFiles}
+            columns={columns}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowHeight={120}
+            processRowUpdate={(newRow) => {
+              handleFileUpdate(newRow.id, newRow);
+              return newRow;
+            }}
+            onProcessRowUpdateError={(error) => {
+              console.error('Row update error:', error);
+            }}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 25 },
+              },
+            }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            sx={{
+              '& .MuiDataGrid-cell': {
+                padding: 1,
+              },
+            }}
+          />
+        )}
       </Paper>
 
       {/* Summary */}
       <Paper sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="body1">
-            <strong>Total Parts:</strong> {files.length}
+            <strong>Total Parts:</strong> {validFiles.length}
           </Typography>
           <Typography variant="body1">
-            <strong>Total Quantity:</strong> {files.reduce((sum, f) => sum + f.quantity, 0)}
+            <strong>Total Quantity:</strong> {validFiles.reduce((sum, f) => sum + (f.quantity || 0), 0)}
           </Typography>
           <Typography variant="h6" color="primary">
             <strong>Grand Total:</strong> $
-            {files.reduce((sum, f) => sum + (f.totalCost || 0), 0).toFixed(2)}
+            {validFiles.reduce((sum, f) => sum + (f.totalCost || 0), 0).toFixed(2)}
           </Typography>
         </Box>
       </Paper>

@@ -1,5 +1,5 @@
 {
-  "name": "smart-cut-quote",
+  "name": "smartcut",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -20,12 +20,15 @@
     "@tauri-apps/plugin-fs": "^2.4.4",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-sql": "^2.3.1",
+    "@types/three": "^0.181.0",
     "dxf-parser": "^1.1.2",
+    "dxf-writer": "^1.18.4",
     "jspdf": "^3.0.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.9.6",
     "recharts": "^3.4.1",
+    "three": "^0.181.2",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

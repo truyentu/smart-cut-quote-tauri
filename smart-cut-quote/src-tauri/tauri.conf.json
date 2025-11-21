@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Smart Cut Quote",
+  "productName": "SmartCut - A product of T2N Group",
   "version": "0.1.0",
   "identifier": "com.brand.smart-cut-quote",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Smart Cut Quote",
+        "title": "SmartCut - A product of T2N Group",
         "width": 1400,
         "height": 900,
         "resizable": true,

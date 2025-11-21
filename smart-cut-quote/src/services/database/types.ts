@@ -64,6 +64,7 @@ export interface MaterialStock {
   cutting_speed: number;
   pierce_time: number;
   pierce_cost: number;
+  cut_price_per_meter: number; // Price per meter for length-based cutting cost
   is_active: number; // SQLite boolean
   created_at?: string;
   updated_at?: string;
@@ -83,6 +84,7 @@ export interface MaterialStockInput {
   cutting_speed?: number;
   pierce_time?: number;
   pierce_cost?: number;
+  cut_price_per_meter?: number;
 }
 
 // =====================================================
@@ -233,6 +235,12 @@ export interface Quote {
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+  // Production tracking fields
+  production_status?: string;
+  production_started_at?: string;
+  production_completed_at?: string;
+  deleted?: number;
+  deleted_at?: string;
 }
 
 export interface QuoteInput {

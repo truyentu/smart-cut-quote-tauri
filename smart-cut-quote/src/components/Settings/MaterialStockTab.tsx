@@ -46,6 +46,7 @@ interface MaterialFormData {
   cutting_speed: string;
   pierce_time: string;
   pierce_cost: string;
+  cut_price_per_meter: string;
 }
 
 const initialFormData: MaterialFormData = {
@@ -61,6 +62,7 @@ const initialFormData: MaterialFormData = {
   cutting_speed: '3000',
   pierce_time: '0.5',
   pierce_cost: '0.15',
+  cut_price_per_meter: '1.50',
 };
 
 export default function MaterialStockTab() {
@@ -104,6 +106,7 @@ export default function MaterialStockTab() {
         cutting_speed: material.cutting_speed.toString(),
         pierce_time: material.pierce_time.toString(),
         pierce_cost: material.pierce_cost.toString(),
+        cut_price_per_meter: material.cut_price_per_meter.toString(),
       });
     } else {
       setEditingId(null);
@@ -142,6 +145,7 @@ export default function MaterialStockTab() {
         cutting_speed: parseFloat(formData.cutting_speed),
         pierce_time: parseFloat(formData.pierce_time),
         pierce_cost: parseFloat(formData.pierce_cost),
+        cut_price_per_meter: parseFloat(formData.cut_price_per_meter),
       };
 
       if (editingId) {
@@ -225,6 +229,13 @@ export default function MaterialStockTab() {
       width: 110,
       type: 'number',
       valueFormatter: (value: number) => `$${value.toFixed(2)}`,
+    },
+    {
+      field: 'cut_price_per_meter',
+      headerName: 'Cut Price ($/m)',
+      width: 130,
+      type: 'number',
+      valueFormatter: (value: number) => value != null ? `$${value.toFixed(2)}/m` : '$0.00/m',
     },
     {
       field: 'quantity_in_stock',
@@ -342,6 +353,14 @@ export default function MaterialStockTab() {
               onChange={handleInputChange('price_per_kg')}
               type="number"
               required
+            />
+            <TextField
+              label="Cut Price ($/m)"
+              value={formData.cut_price_per_meter}
+              onChange={handleInputChange('cut_price_per_meter')}
+              type="number"
+              required
+              helperText="Price per meter for length-based cutting cost"
             />
             <TextField
               label="Cutting Speed (mm/min)"

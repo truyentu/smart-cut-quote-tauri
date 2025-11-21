@@ -20,14 +20,16 @@ const steps = [
 
 const StepperContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
-  justifyContent: 'center',
+  justifyContent: 'space-evenly',
   alignItems: 'center',
-  padding: theme.spacing(2, 3),
+  padding: theme.spacing(3, 6),
   backgroundColor: '#f8f9fa',
   borderBottom: '1px solid #e0e0e0',
 }));
 
-const StepItem = styled(Box)<{ active?: boolean; completed?: boolean }>(
+const StepItem = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'active' && prop !== 'completed',
+})<{ active?: boolean; completed?: boolean }>(
   ({ active, completed }) => ({
     display: 'flex',
     flexDirection: 'column',
@@ -44,34 +46,40 @@ const StepItem = styled(Box)<{ active?: boolean; completed?: boolean }>(
   })
 );
 
-const IconWrapper = styled(Box)<{ active?: boolean }>(({ active }) => ({
-  width: 48,
-  height: 48,
+const IconWrapper = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'active',
+})<{ active?: boolean }>(({ active }) => ({
+  width: 72,
+  height: 72,
   borderRadius: '50%',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   backgroundColor: active ? '#1976d2' : '#e0e0e0',
   color: active ? '#fff' : '#666',
-  marginBottom: 4,
+  marginBottom: 8,
   transition: 'all 0.2s ease',
   '& svg': {
-    fontSize: 24,
+    fontSize: 36,
   },
 }));
 
-const StepLabel = styled('span')<{ active?: boolean }>(({ active }) => ({
-  fontSize: 12,
+const StepLabel = styled('span', {
+  shouldForwardProp: (prop) => prop !== 'active',
+})<{ active?: boolean }>(({ active }) => ({
+  fontSize: 14,
   fontWeight: active ? 600 : 400,
   color: active ? '#1976d2' : '#666',
 }));
 
-const Connector = styled(Box)<{ completed?: boolean }>(({ completed }) => ({
-  width: 60,
-  height: 2,
+const Connector = styled(Box, {
+  shouldForwardProp: (prop) => prop !== 'completed',
+})<{ completed?: boolean }>(({ completed }) => ({
+  width: 120,
+  height: 3,
   backgroundColor: completed ? '#1976d2' : '#e0e0e0',
-  margin: '0 8px',
-  marginBottom: 20,
+  margin: '0 16px',
+  marginBottom: 32,
 }));
 
 export default function Stepper() {
@@ -81,8 +89,8 @@ export default function Stepper() {
   // Find current step index based on path
   const currentStepIndex = steps.findIndex((step) => step.path === location.pathname);
 
-  // Don't show stepper on dashboard or settings
-  if (location.pathname === '/' || location.pathname === '/settings') {
+  // Don't show stepper on settings page only
+  if (location.pathname === '/settings') {
     return null;
   }
 

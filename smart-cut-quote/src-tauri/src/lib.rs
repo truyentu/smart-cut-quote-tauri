@@ -29,6 +29,30 @@ fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/002_simplify_operations.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "Add cut_price_per_meter to material_stock for length-based pricing",
+            sql: include_str!("../migrations/003_add_material_pricing.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 4,
+            description: "Add nesting settings and currency symbol",
+            sql: include_str!("../migrations/004_add_nesting_settings.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "Add tasks table for workflow management",
+            sql: include_str!("../migrations/005_add_tasks.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 6,
+            description: "Add production tracking and soft delete",
+            sql: include_str!("../migrations/006_add_production_tracking.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
@@ -48,6 +72,24 @@ async fn run_nesting_integrated(
     .map_err(|e| format!("Task join error: {}", e))?
 }
 
+/// Read DXF file content from disk
+///
+/// Used by DXF healing editor to load file for editing
+#[tauri::command]
+async fn read_dxf_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read DXF file '{}': {}", path, e))
+}
+
+/// Write DXF file content to disk
+///
+/// Used by DXF healing editor to save modified file
+#[tauri::command]
+async fn write_dxf_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content)
+        .map_err(|e| format!("Failed to write DXF file '{}': {}", path, e))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -63,7 +105,9 @@ pub fn run() {
             greet,
             convert_dxf_to_json,
             run_nesting,
-            run_nesting_integrated
+            run_nesting_integrated,
+            read_dxf_file,
+            write_dxf_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

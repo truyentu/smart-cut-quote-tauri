@@ -38,6 +38,7 @@ export default function FileUpload() {
           quantity: 1,
           operations: [],
           status: 'pending' as const,
+          selected: true, // Select by default
         }));
 
         addFiles(newFiles);
@@ -148,18 +149,6 @@ export default function FileUpload() {
         </Box>
       </Box>
 
-      {files.length > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, flexShrink: 0 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            endIcon={<ArrowForwardIcon />}
-            onClick={handleNext}
-          >
-            Next: File Healing
-          </Button>
-        </Box>
-      )}
     </Box>
   );
 }

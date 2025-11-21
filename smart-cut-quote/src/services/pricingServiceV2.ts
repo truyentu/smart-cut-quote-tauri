@@ -180,24 +180,22 @@ export function calculateMaterialCostPerPart(
 }
 
 /**
- * Calculate cutting cost
- * Formula: Cutting Time(min) = Cut Length(mm) / Cutting Speed(mm/min)
- *          Cutting Cost = Cutting Time(hr) × Hourly Rate
+ * Calculate cutting cost (Length-based)
+ * Formula: Cutting Cost = Cut Length (m) × Price Per Meter ($/m) × Quantity
+ *
+ * This method calculates cost based on the total length of cuts,
+ * which is more predictable and easier to understand than time-based calculations.
  */
 export function calculateCuttingCost(
-  cutLength: number,
-  cuttingSpeed: number,
-  hourlyRate: number,
+  cutLength: number,           // mm
+  cutPricePerMeter: number,    // $/meter
   quantity: number
 ): number {
-  // Calculate cutting time in minutes
-  const cuttingTimeMin = cutLength / cuttingSpeed;
+  // Convert mm to meters
+  const cutLengthM = cutLength / 1000;
 
-  // Convert to hours
-  const cuttingTimeHr = cuttingTimeMin / 60;
-
-  // Calculate cutting cost
-  const cost = cuttingTimeHr * hourlyRate * quantity;
+  // Calculate cutting cost: Length (m) × Price ($/m) × Quantity
+  const cost = cutLengthM * cutPricePerMeter * quantity;
 
   return Math.round(cost * 100) / 100;
 }
@@ -297,6 +295,7 @@ export async function calculatePartCost(
     pierceCount: number;
     area: number;
     operations: string[];
+    boundingBox?: { width: number; height: number }; // Optional: for more accurate material cost
   }
 ): Promise<PartCost> {
   const materials = await getMaterials();
@@ -314,8 +313,7 @@ export async function calculatePartCost(
   // Calculate individual costs
   const cuttingCost = calculateCuttingCost(
     partData.cutLength,
-    material.cutting_speed,
-    machine.hourly_rate,
+    material.cut_price_per_meter,
     partData.quantity
   );
 
@@ -337,8 +335,26 @@ export async function calculatePartCost(
     }
   );
 
-  // Material cost will be calculated separately based on nesting result
-  const materialCost = 0;
+  // Calculate material cost based on bounding box or area
+  let materialCost = 0;
+  if (partData.boundingBox) {
+    // Use bounding box for more accurate material cost
+    materialCost = calculateMaterialCostPerPart(
+      partData.boundingBox.width,
+      partData.boundingBox.height,
+      material,
+      partData.quantity
+    );
+  } else if (partData.area > 0) {
+    // Fallback: Estimate bounding box from area (assume square-ish shape)
+    const estimatedSide = Math.sqrt(partData.area);
+    materialCost = calculateMaterialCostPerPart(
+      estimatedSide,
+      estimatedSide,
+      material,
+      partData.quantity
+    );
+  }
 
   // Calculate subtotal
   const subtotal = materialCost + cuttingCost + piercingCost + operationsCost;
@@ -363,6 +379,108 @@ export async function calculatePartCost(
       totalCost: Math.round(totalCost * 100) / 100,
     },
   };
+}
+
+/**
+ * Calculate costs for all parts in the quote
+ * This is the main function to call from Summary page
+ */
+export async function calculateAllPartsCosts(
+  files: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    materialGroup?: string;
+    materialGrade?: string;
+    materialThickness?: number;
+    machine?: string;
+    operations: string[];
+    metadata?: {
+      cutLength: number;
+      pierceCount: number;
+      area: number;
+      dimensions: { width: number; height: number };
+    };
+  }>
+): Promise<{
+  partCosts: PartCost[];
+  summary: QuoteCostSummary;
+}> {
+  // Load pricing data
+  const materials = await getMaterials();
+  const settings = await getSettings();
+
+  // Calculate cost for each part
+  const partCosts: PartCost[] = [];
+  let totalMaterialCost = 0;
+  let totalCuttingCost = 0;
+  let totalOperationsCost = 0;
+
+  for (const file of files) {
+    // Skip if missing required data
+    if (!file.metadata || !file.materialGroup || !file.materialThickness || !file.machine) {
+      console.warn(`Skipping ${file.name}: missing metadata or material/machine info`);
+      continue;
+    }
+
+    // Find matching material by name, grade, and thickness
+    const material = materials.find(
+      (m) =>
+        m.name === file.materialGroup &&
+        (!file.materialGrade || m.grade === file.materialGrade) &&
+        m.thickness === file.materialThickness
+    );
+
+    if (!material) {
+      console.warn(`Material not found for ${file.name}: ${file.materialGroup} ${file.materialThickness}mm`);
+      continue;
+    }
+
+    try {
+      const partCost = await calculatePartCost({
+        id: file.id,
+        quantity: file.quantity,
+        materialId: material.id,
+        machineName: file.machine,
+        cutLength: file.metadata.cutLength,
+        pierceCount: file.metadata.pierceCount,
+        area: file.metadata.area,
+        operations: file.operations,
+        boundingBox: file.metadata.dimensions,
+      });
+
+      partCosts.push(partCost);
+      totalMaterialCost += partCost.breakdown.material;
+      totalCuttingCost += partCost.breakdown.cutting;
+      totalOperationsCost += partCost.breakdown.operations;
+    } catch (err) {
+      console.error(`Failed to calculate cost for ${file.name}:`, err);
+    }
+  }
+
+  // Calculate totals
+  const subtotal = totalMaterialCost + totalCuttingCost + totalOperationsCost;
+  const priceMarkup = subtotal * (settings.default_price_markup / 100);
+  const materialMarkup = 0; // Not used in current implementation
+  const beforeTax = subtotal + priceMarkup + materialMarkup;
+  const tax = beforeTax * (settings.default_tax_rate / 100);
+  const total = beforeTax + tax;
+
+  const summary: QuoteCostSummary = {
+    parts: partCosts,
+    materialCost: Math.round(totalMaterialCost * 100) / 100,
+    cuttingCost: Math.round(totalCuttingCost * 100) / 100,
+    operationsCost: Math.round(totalOperationsCost * 100) / 100,
+    subtotal: Math.round(subtotal * 100) / 100,
+    priceMarkup: Math.round(priceMarkup * 100) / 100,
+    materialMarkup: Math.round(materialMarkup * 100) / 100,
+    discount: 0,
+    hiddenDiscount: 0,
+    tax: Math.round(tax * 100) / 100,
+    total: Math.round(total * 100) / 100,
+  };
+
+  return { partCosts, summary };
 }
 
 /**
@@ -407,5 +525,6 @@ export default {
   calculateOperationCost,
   calculateOperationsCost,
   calculatePartCost,
+  calculateAllPartsCosts,
   calculateQuoteTotal,
 };

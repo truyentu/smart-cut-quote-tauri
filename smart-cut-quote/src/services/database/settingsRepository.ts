@@ -154,6 +154,43 @@ export async function updateCompanyInfo(info: Partial<CompanyInfo>): Promise<voi
   }
 }
 
+/**
+ * Nesting Settings Interface
+ */
+export interface NestingSettings {
+  stripHeight: number;
+  partSpacing: number;
+  timeLimit: number;
+}
+
+/**
+ * Get nesting settings from database
+ */
+export async function getNestingSettings(): Promise<NestingSettings> {
+  const [stripHeight, partSpacing, timeLimit] = await Promise.all([
+    getSetting('nesting_strip_height'),
+    getSetting('nesting_part_spacing'),
+    getSetting('nesting_time_limit'),
+  ]);
+
+  return {
+    stripHeight: stripHeight ? parseFloat(stripHeight) : 6000,
+    partSpacing: partSpacing ? parseFloat(partSpacing) : 5,
+    timeLimit: timeLimit ? parseFloat(timeLimit) : 60,
+  };
+}
+
+/**
+ * Save nesting settings to database
+ */
+export async function saveNestingSettings(settings: NestingSettings): Promise<void> {
+  await Promise.all([
+    setSetting('nesting_strip_height', settings.stripHeight.toString()),
+    setSetting('nesting_part_spacing', settings.partSpacing.toString()),
+    setSetting('nesting_time_limit', settings.timeLimit.toString()),
+  ]);
+}
+
 export default {
   getSetting,
   setSetting,
@@ -161,4 +198,6 @@ export default {
   updateAppSettings,
   getCompanyInfo,
   updateCompanyInfo,
+  getNestingSettings,
+  saveNestingSettings,
 };

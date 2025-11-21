@@ -29,6 +29,8 @@ export { default as clientRepository } from './clientRepository';
 export * from './quoteRepository';
 export { default as quoteRepository } from './quoteRepository';
 
+export * from './taskRepository';
+
 // Convenience re-exports
 import { getDatabase, closeDatabase } from './connection';
 import { getAppSettings, updateAppSettings, getCompanyInfo, updateCompanyInfo } from './settingsRepository';
@@ -37,6 +39,7 @@ import { getAllMachines, getMachineById, createMachine, updateMachine, deleteMac
 import { getAllOperations, getOperationById, createOperation, updateOperation, deleteOperation } from './operationRepository';
 import { getAllClients, getClientById, createClient, updateClient, deleteClient, searchClients } from './clientRepository';
 import { getAllQuotes, getQuoteById, createQuote, updateQuote, deleteQuote, searchQuotes, getQuoteStats } from './quoteRepository';
+import { getAllTasks, getTaskById, createTask, updateTask, deleteTask, completeTask, getPendingTasks, getTaskStats } from './taskRepository';
 
 /**
  * Database service object with all common operations
@@ -98,6 +101,18 @@ export const db = {
     delete: deleteQuote,
     search: searchQuotes,
     getStats: getQuoteStats,
+  },
+
+  // Tasks
+  tasks: {
+    getAll: getAllTasks,
+    getById: getTaskById,
+    create: createTask,
+    update: updateTask,
+    delete: deleteTask,
+    complete: completeTask,
+    getPending: getPendingTasks,
+    getStats: getTaskStats,
   },
 };
 

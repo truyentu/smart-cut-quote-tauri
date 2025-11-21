@@ -5,7 +5,7 @@
  * Save button exports PDF directly
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -35,13 +35,16 @@ import { generateAndSavePdf } from '../services/pdfService';
 import { getAppSettings } from '../services/database';
 import { QuoteSummary } from '../types/quote';
 import DxfThumbnail from '../components/Viewer/DxfThumbnail';
+import { formatCurrency } from '../lib/formatCurrency';
 
 export default function Summary() {
   const navigate = useNavigate();
   const files = useQuoteStore((state) => state.files);
   const client = useQuoteStore((state) => state.client);
+  const currentQuoteId = useQuoteStore((state) => state.currentQuoteId);
   const currentQuoteNumber = useQuoteStore((state) => state.currentQuoteNumber);
   const saveCurrentQuote = useQuoteStore((state) => state.saveCurrentQuote);
+  const updateCurrentQuote = useQuoteStore((state) => state.updateCurrentQuote);
   const setSummary = useQuoteStore((state) => state.setSummary);
 
   const [loading, setLoading] = useState(false);
@@ -54,6 +57,8 @@ export default function Summary() {
   const [shipping, setShipping] = useState(0);
   const [notes, setNotes] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [calculatingCosts, setCalculatingCosts] = useState(false);
+  const [summary, setSummaryState] = useState<QuoteSummary | null>(null);
 
   // Load tax rate from database settings
   useEffect(() => {
@@ -70,46 +75,45 @@ export default function Summary() {
     loadSettings();
   }, []);
 
-  // Calculate summary from individual file costs
-  const summary: QuoteSummary | null = useMemo(() => {
-    if (files.length === 0 || !settingsLoaded) return null;
-
-    // Sum up all costs from individual parts
-    let materialCost = 0;
-    let cuttingCost = 0;
-    let operationsCost = 0;
-
-    files.forEach((file) => {
-      if (file.totalCost) {
-        // Estimate breakdown based on typical ratios
-        // In production, store actual breakdown in file
-        materialCost += file.totalCost * 0.4;
-        cuttingCost += file.totalCost * 0.35;
-        operationsCost += file.totalCost * 0.25;
-      }
-    });
-
-    const subtotal = materialCost + cuttingCost + operationsCost + shipping;
-    const tax = subtotal * (taxRate / 100);
-    const total = subtotal + tax;
-
-    return {
-      materialCost: Math.round(materialCost * 100) / 100,
-      cuttingCost: Math.round(cuttingCost * 100) / 100,
-      operationsCost: Math.round(operationsCost * 100) / 100,
-      shipping: Math.round(shipping * 100) / 100,
-      subtotal: Math.round(subtotal * 100) / 100,
-      tax: Math.round(tax * 100) / 100,
-      total: Math.round(total * 100) / 100,
-    };
-  }, [files, taxRate, shipping, settingsLoaded]);
-
-  // Update summary in store when calculated
+  // Calculate costs when component mounts or files change
   useEffect(() => {
-    if (summary) {
-      setSummary(summary);
-    }
-  }, [summary, setSummary]);
+    const calculateCosts = () => {
+      if (files.length === 0 || !settingsLoaded) return;
+
+      setCalculatingCosts(true);
+      try {
+        // Sum up pre-calculated costs from files (already calculated in PartLibrary)
+        const filesTotal = files.reduce((sum, f) => sum + (f.totalCost || 0), 0);
+
+        // Add shipping to the subtotal
+        const subtotalWithShipping = filesTotal + shipping;
+        const taxWithShipping = subtotalWithShipping * (taxRate / 100);
+        const totalWithShipping = subtotalWithShipping + taxWithShipping;
+
+        const summaryData: QuoteSummary = {
+          materialCost: 0,  // Breakdown not available from pre-calculated costs
+          cuttingCost: 0,
+          operationsCost: 0,
+          shipping: Math.round(shipping * 100) / 100,
+          subtotal: Math.round(subtotalWithShipping * 100) / 100,
+          tax: Math.round(taxWithShipping * 100) / 100,
+          total: Math.round(totalWithShipping * 100) / 100,
+        };
+
+        setSummaryState(summaryData);
+        setSummary(summaryData);
+
+        console.log('✅ Costs aggregated from files:', summaryData);
+      } catch (err) {
+        console.error('Failed to calculate costs:', err);
+        setError('Failed to calculate costs. Please ensure all parts have prices calculated.');
+      } finally {
+        setCalculatingCosts(false);
+      }
+    };
+
+    calculateCosts();
+  }, [files, settingsLoaded, shipping, taxRate, setSummary]);
 
   // Save quote and generate PDF
   const handleSave = async () => {
@@ -123,11 +127,19 @@ export default function Summary() {
       setError(null);
       setSuccess(false);
 
-      // Save quote to database first
+      // Save or update quote to database first
       if (client) {
-        const savedQuote = await saveCurrentQuote();
-        console.log('Quote saved:', savedQuote.quoteNumber);
-        setSaveSuccess(true);
+        if (currentQuoteId) {
+          // Update existing quote
+          await updateCurrentQuote({ notes });
+          console.log('Quote updated:', currentQuoteNumber);
+          setSaveSuccess(true);
+        } else {
+          // Create new quote
+          const savedQuote = await saveCurrentQuote(notes);
+          console.log('Quote saved:', savedQuote.quoteNumber);
+          setSaveSuccess(true);
+        }
       }
 
       // Generate and export PDF
@@ -157,12 +169,14 @@ export default function Summary() {
     navigate('/nesting');
   };
 
-  // Show loading state while settings are being loaded
-  if (!settingsLoaded) {
+  // Show loading state while settings are being loaded or costs are calculating
+  if (!settingsLoaded || calculatingCosts) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
         <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Loading settings...</Typography>
+        <Typography sx={{ ml: 2 }}>
+          {!settingsLoaded ? 'Loading settings...' : 'Calculating costs...'}
+        </Typography>
       </Box>
     );
   }
@@ -207,9 +221,16 @@ export default function Summary() {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Typography variant="h4" gutterBottom>
-        Quote Summary
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Typography variant="h4">
+          Quote Summary
+        </Typography>
+        {currentQuoteId && (
+          <Alert severity="info" sx={{ py: 0 }}>
+            Editing Quote {currentQuoteNumber}
+          </Alert>
+        )}
+      </Box>
 
       <Grid container spacing={3} sx={{ flexGrow: 1 }}>
         {/* Left: Quote Details */}
@@ -249,15 +270,15 @@ export default function Summary() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2">Material:</Typography>
-                  <Typography variant="body2">${summary.materialCost.toFixed(2)}</Typography>
+                  <Typography variant="body2">{formatCurrency(summary.materialCost)}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2">Cutting:</Typography>
-                  <Typography variant="body2">${summary.cuttingCost.toFixed(2)}</Typography>
+                  <Typography variant="body2">{formatCurrency(summary.cuttingCost)}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2">Operations:</Typography>
-                  <Typography variant="body2">${summary.operationsCost.toFixed(2)}</Typography>
+                  <Typography variant="body2">{formatCurrency(summary.operationsCost)}</Typography>
                 </Box>
               </Box>
 
@@ -268,11 +289,11 @@ export default function Summary() {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Shipping"
+                  label="Shipping (VNĐ)"
                   type="number"
                   value={shipping}
                   onChange={(e) => setShipping(Number(e.target.value))}
-                  InputProps={{ startAdornment: '$' }}
+                  helperText="Enter shipping cost"
                 />
               </Box>
 
@@ -280,16 +301,16 @@ export default function Summary() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2">Subtotal:</Typography>
-                  <Typography variant="body2">${summary.subtotal.toFixed(2)}</Typography>
+                  <Typography variant="body2">{formatCurrency(summary.subtotal)}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2">Tax ({taxRate}%):</Typography>
-                  <Typography variant="body2">${summary.tax.toFixed(2)}</Typography>
+                  <Typography variant="body2">{formatCurrency(summary.tax)}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                   <Typography variant="h6">Total:</Typography>
                   <Typography variant="h6" color="primary">
-                    ${summary.total.toFixed(2)}
+                    {formatCurrency(summary.total)}
                   </Typography>
                 </Box>
               </Box>
@@ -320,12 +341,15 @@ export default function Summary() {
                 disabled={loading}
                 color="primary"
               >
-                {loading ? 'Saving...' : 'Save & Export PDF'}
+                {loading
+                  ? (currentQuoteId ? 'Updating...' : 'Saving...')
+                  : (currentQuoteId ? 'Update & Export PDF' : 'Save & Export PDF')
+                }
               </Button>
 
               {success && (
                 <Alert severity="success" icon={<CheckCircleIcon />} sx={{ mt: 2 }}>
-                  Quote saved and PDF exported!
+                  {currentQuoteId ? 'Quote updated and PDF exported!' : 'Quote saved and PDF exported!'}
                 </Alert>
               )}
 
@@ -395,11 +419,11 @@ export default function Summary() {
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
-                          ${(file.unitCost || 0).toFixed(2)}
+                          {formatCurrency(file.unitCost || 0)}
                         </TableCell>
                         <TableCell align="right">
                           <Typography fontWeight="medium">
-                            ${(file.totalCost || 0).toFixed(2)}
+                            {formatCurrency(file.totalCost || 0)}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -414,7 +438,7 @@ export default function Summary() {
                   Total Quantity: <strong>{files.reduce((sum, f) => sum + f.quantity, 0)}</strong>
                 </Typography>
                 <Typography variant="body1" color="primary">
-                  Grand Total: <strong>${files.reduce((sum, f) => sum + (f.totalCost || 0), 0).toFixed(2)}</strong>
+                  Grand Total: <strong>{formatCurrency(files.reduce((sum, f) => sum + (f.totalCost || 0), 0))}</strong>
                 </Typography>
               </Box>
             </CardContent>

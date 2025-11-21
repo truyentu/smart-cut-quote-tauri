@@ -13,6 +13,7 @@ import {
   deleteSavedQuote,
   SavedQuote,
 } from '../services/quoteService';
+import { BatchedNestingResult, createSvgBlobUrl } from '../services/nestingService';
 
 interface QuoteState {
   // State
@@ -20,7 +21,11 @@ interface QuoteState {
   client: Client | null;
   files: DxfFile[];
   nestingResult: NestingResult | null;
+  nestingSvgUrl: string | null;
   summary: QuoteSummary | null;
+
+  // Batched nesting results from Part Library
+  batchedNestingResults: BatchedNestingResult[] | null;
 
   // Current quote info
   currentQuoteId: string | null;
@@ -36,7 +41,8 @@ interface QuoteState {
   addFiles: (files: DxfFile[]) => void;
   removeFile: (fileId: string) => void;
   updateFile: (fileId: string, updates: Partial<DxfFile>) => void;
-  setNestingResult: (result: NestingResult) => void;
+  setNestingResult: (result: NestingResult | null, svgUrl?: string | null) => void;
+  setBatchedNestingResults: (batches: BatchedNestingResult[]) => void;
   setSummary: (summary: QuoteSummary) => void;
   resetQuote: () => void;
 
@@ -49,7 +55,9 @@ interface QuoteState {
     discount?: number;
     hiddenDiscount?: number;
   }) => Promise<void>;
+  updateQuoteStatus: (quoteId: string, status: SavedQuote['status']) => Promise<void>;
   loadQuoteById: (quoteId: string) => Promise<void>;
+  loadQuoteForEditing: (quoteId: string) => Promise<void>;
   loadAllSavedQuotes: () => Promise<void>;
   deleteQuoteById: (quoteId: string) => Promise<void>;
 }
@@ -59,7 +67,9 @@ const initialState = {
   client: null,
   files: [],
   nestingResult: null,
+  nestingSvgUrl: null,
   summary: null,
+  batchedNestingResults: null,
   currentQuoteId: null,
   currentQuoteNumber: null,
   savedQuotes: [],
@@ -88,7 +98,11 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
       files: state.files.map((f) => (f.id === fileId ? { ...f, ...updates } : f)),
     })),
 
-  setNestingResult: (result: NestingResult) => set({ nestingResult: result }),
+  setNestingResult: (result: NestingResult | null, svgUrl?: string | null) =>
+    set({ nestingResult: result, nestingSvgUrl: svgUrl || null }),
+
+  setBatchedNestingResults: (batches: BatchedNestingResult[]) =>
+    set({ batchedNestingResults: batches }),
 
   setSummary: (summary: QuoteSummary) => set({ summary }),
 
@@ -134,12 +148,38 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
     await get().loadAllSavedQuotes();
   },
 
+  // Update quote status (for Accept/Reject actions from Dashboard)
+  updateQuoteStatus: async (quoteId: string, status: SavedQuote['status']) => {
+    await updateSavedQuote(quoteId, { status });
+
+    // Refresh saved quotes list
+    await get().loadAllSavedQuotes();
+  },
+
   // Load quote from database
   loadQuoteById: async (quoteId: string) => {
     const quote = await loadQuote(quoteId);
 
     if (!quote) {
       throw new Error('Quote not found');
+    }
+
+    // Validate and sanitize files array
+    let validFiles: DxfFile[] = [];
+    if (Array.isArray(quote.files)) {
+      validFiles = quote.files.filter((file) => {
+        // Ensure file has required properties
+        return file && typeof file === 'object' && file.id && file.name && file.path;
+      });
+    } else {
+      console.warn('Quote files is not an array, initializing as empty array');
+    }
+
+    // Recreate SVG blob URL if nesting result has SVG string
+    let nestingSvgUrl: string | null = null;
+    if (quote.nestingResult?.svgString) {
+      nestingSvgUrl = createSvgBlobUrl(quote.nestingResult.svgString);
+      console.log('🔄 Recreated SVG blob URL from database');
     }
 
     set({
@@ -150,9 +190,53 @@ export const useQuoteStore = create<QuoteState>((set, get) => ({
         name: quote.clientName,
         company: quote.company,
       },
-      files: quote.files,
+      files: validFiles,
       nestingResult: quote.nestingResult || null,
+      nestingSvgUrl: nestingSvgUrl,
       summary: quote.summary || null,
+    });
+  },
+
+  // Load quote for editing (restores all state and navigates to workflow)
+  loadQuoteForEditing: async (quoteId: string) => {
+    const quote = await loadQuote(quoteId);
+    if (!quote) {
+      throw new Error('Quote not found');
+    }
+
+    // Validate and sanitize files array
+    let validFiles: DxfFile[] = [];
+    if (Array.isArray(quote.files)) {
+      validFiles = quote.files.filter((file) => {
+        // Ensure file has required properties
+        return file && typeof file === 'object' && file.id && file.name && file.path;
+      });
+    } else {
+      console.warn('Quote files is not an array, initializing as empty array');
+    }
+
+    // Recreate SVG blob URL if nesting result has SVG string
+    let nestingSvgUrl: string | null = null;
+    if (quote.nestingResult?.svgString) {
+      nestingSvgUrl = createSvgBlobUrl(quote.nestingResult.svgString);
+      console.log('🔄 Recreated SVG blob URL from database for editing');
+    }
+
+    // Restore entire quote state
+    set({
+      currentQuoteId: quote.id,
+      currentQuoteNumber: quote.quoteNumber,
+      client: {
+        id: quote.clientId,
+        name: quote.clientName,
+        company: quote.company,
+      },
+      files: validFiles,
+      nestingResult: quote.nestingResult || null,
+      nestingSvgUrl: nestingSvgUrl,
+      summary: quote.summary || null,
+      // Start at stage 1 (Client Selection) to allow changing client
+      currentStage: 1,
     });
   },
 

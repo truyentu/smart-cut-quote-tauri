@@ -208,6 +208,7 @@ export async function runNestingWorkflow(
         rotation: item.rotation_degrees,
       })),
       svgPath: '', // No file path, using blob URL instead
+      svgString: nestingOutput.svg_string, // Save SVG string for database persistence
     };
 
     // Create blob URL from SVG string if available

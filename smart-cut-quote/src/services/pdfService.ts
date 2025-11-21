@@ -10,6 +10,9 @@ import { DxfFile, QuoteSummary } from '../types/quote';
 import { getCompanyInfo, getAppSettings } from './database';
 import { Client as DbClient, CompanyInfo } from './database/types';
 
+// VIETNAMESE FONT SUPPORT:
+import { robotoFont, fontName, fontStyle } from '../assets/fonts/roboto-font';
+
 // Colors
 const PRIMARY_BLUE = '#4A90D9';
 
@@ -44,6 +47,15 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 /**
+ * Format currency in Vietnamese style (no decimals, space-separated thousands)
+ * Example: 1250370 -> "1 250 370"
+ */
+function formatVND(amount: number): string {
+  const rounded = Math.round(amount);
+  return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/**
  * Generate and save PDF quote
  */
 export async function generateAndSavePdf(options: PdfGenerationOptions): Promise<boolean> {
@@ -59,7 +71,14 @@ export async function generateAndSavePdf(options: PdfGenerationOptions): Promise
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
+      compress: false, // Disable compression for custom font support
     });
+
+    // VIETNAMESE FONT SUPPORT:
+    // Add custom font to jsPDF
+    doc.addFileToVFS(`${fontName}.ttf`, robotoFont);
+    doc.addFont(`${fontName}.ttf`, fontName, fontStyle);
+    doc.setFont(fontName);
 
     const pageWidth = 210;
     const pageHeight = 297;
@@ -80,12 +99,12 @@ export async function generateAndSavePdf(options: PdfGenerationOptions): Promise
     // ========================================
     // PARTS TABLE
     // ========================================
-    y = drawPartsTable(doc, files, margin, y, contentWidth, pageHeight, settings.currency_symbol);
+    y = drawPartsTable(doc, files, margin, y, contentWidth, pageHeight);
 
     // ========================================
     // FOOTER SECTION (Shipping, Note, Summary)
     // ========================================
-    y = drawFooter(doc, summary, companyInfo, notes, margin, y, contentWidth, pageHeight, settings.currency_symbol);
+    y = drawFooter(doc, summary, companyInfo, notes, margin, y, contentWidth, pageHeight);
 
     // ========================================
     // SAVE PDF
@@ -134,13 +153,13 @@ function drawHeader(
 
   // Company name (large, blue)
   doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(blue.r, blue.g, blue.b);
   doc.text(companyInfo?.company_name || 'Company Name', margin, y);
 
   // Company address and contact (left side)
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(100, 100, 100);
 
   let leftY = y + 8;
@@ -171,27 +190,27 @@ function drawHeader(
   let rightY = y;
 
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(50, 50, 50);
 
   if (quoteNumber) {
-    doc.text('Quote No:', rightX, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(quoteNumber, rightX + 25, rightY);
+    doc.text('Số báo giá:', rightX, rightY);
+    doc.setFont(fontName, 'normal');
+    doc.text(quoteNumber, rightX + 28, rightY);
     rightY += 5;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(fontName, 'normal');
   }
 
-  doc.text('Date:', rightX, rightY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(new Date().toLocaleDateString('en-AU'), rightX + 25, rightY);
+  doc.text('Ngày:', rightX, rightY);
+  doc.setFont(fontName, 'normal');
+  doc.text(new Date().toLocaleDateString('vi-VN'), rightX + 28, rightY);
   rightY += 5;
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Valid Until:', rightX, rightY);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
+  doc.text('Hiệu lực đến:', rightX, rightY);
+  doc.setFont(fontName, 'normal');
   const validDate = validUntil || new Date(Date.now() + defaultValidityDays * 24 * 60 * 60 * 1000);
-  doc.text(validDate.toLocaleDateString('en-AU'), rightX + 25, rightY);
+  doc.text(validDate.toLocaleDateString('vi-VN'), rightX + 28, rightY);
 
   return Math.max(leftY, rightY) + 10;
 }
@@ -214,27 +233,27 @@ function drawBillToShipTo(
   doc.setFillColor(blue.r, blue.g, blue.b);
   doc.rect(margin, y, colWidth, 6, 'F');
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(255, 255, 255);
-  doc.text('Bill To', margin + 3, y + 4.5);
+  doc.text('Thông tin khách hàng', margin + 3, y + 4.5);
 
   // Ship To header
   const shipX = margin + colWidth + 10;
   doc.rect(shipX, y, colWidth, 6, 'F');
-  doc.text('Ship To', shipX + 3, y + 4.5);
+  doc.text('Địa chỉ giao hàng', shipX + 3, y + 4.5);
 
   y += 10;
 
   // Bill To content
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(50, 50, 50);
 
   let billY = y;
   if (client?.name || clientDetails?.company_name) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(fontName, 'normal');
     doc.text(client?.name || clientDetails?.company_name || '', margin, billY);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(fontName, 'normal');
     billY += 4;
   }
   if (clientDetails?.billing_address_line1) {
@@ -258,9 +277,9 @@ function drawBillToShipTo(
   // Ship To content
   let shipY = y;
   if (client?.name || clientDetails?.company_name) {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(fontName, 'normal');
     doc.text(client?.name || clientDetails?.company_name || '', shipX, shipY);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(fontName, 'normal');
     shipY += 4;
   }
   if (clientDetails?.shipping_address_line1) {
@@ -292,8 +311,7 @@ function drawPartsTable(
   margin: number,
   y: number,
   contentWidth: number,
-  pageHeight: number,
-  currencySymbol: string
+  pageHeight: number
 ): number {
   const blue = hexToRgb(PRIMARY_BLUE);
 
@@ -313,29 +331,29 @@ function drawPartsTable(
   doc.rect(margin, y, contentWidth, 7, 'F');
 
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(255, 255, 255);
 
   let x = margin + 2;
   doc.text('#', x, y + 5);
   x += cols.num;
-  doc.text('Name', x, y + 5);
+  doc.text('Tên chi tiết', x, y + 5);
   x += cols.name;
-  doc.text('Preview', x, y + 5);
+  doc.text('Hình ảnh', x, y + 5);
   x += cols.preview;
-  doc.text('Material', x, y + 5);
+  doc.text('Vật liệu', x, y + 5);
   x += cols.material;
-  doc.text('Qty', x, y + 5);
+  doc.text('SL', x, y + 5);
   x += cols.qty;
-  doc.text('Unit Cost', x, y + 5);
+  doc.text('Đơn giá', x, y + 5);
   x += cols.unitCost;
-  doc.text('Total Cost', x, y + 5);
+  doc.text('Thành tiền', x, y + 5);
 
   y += 7;
 
   // Table rows
   doc.setTextColor(50, 50, 50);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
 
   files.forEach((file, index) => {
     // Check if need new page
@@ -405,14 +423,15 @@ function drawPartsTable(
 
     // Unit Cost
     const unitCost = file.unitCost || 0;
-    doc.text(`${currencySymbol}${unitCost.toFixed(2)}`, x, textY);
+    doc.setFontSize(7);
+    doc.text(formatVND(unitCost), x, textY);
     x += cols.unitCost;
 
     // Total Cost
     const totalCost = file.totalCost || 0;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${currencySymbol}${totalCost.toFixed(2)}`, x, textY);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(fontName, 'normal');
+    doc.text(formatVND(totalCost), x, textY);
+    doc.setFont(fontName, 'normal');
 
     // Operations (if any)
     if (file.operations.length > 0) {
@@ -440,8 +459,7 @@ function drawFooter(
   margin: number,
   y: number,
   contentWidth: number,
-  pageHeight: number,
-  currencySymbol: string
+  pageHeight: number
 ): number {
   // Check if need new page for footer
   if (y + 60 > pageHeight - margin) {
@@ -453,20 +471,20 @@ function drawFooter(
 
   // Shipping
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(50, 50, 50);
-  doc.text('Shipping:', rightColX, y);
-  doc.text(`${currencySymbol}${summary.shipping.toFixed(2)}`, rightColX + 50, y, { align: 'right' });
+  doc.text('Vận chuyển:', rightColX, y);
+  doc.text(formatVND(summary.shipping), rightColX + 50, y, { align: 'right' });
   y += 8;
 
   // Note section
   if (notes || companyInfo?.phone) {
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
-    const noteText = notes || `If you have any questions about this quote, please contact ${companyInfo?.phone || 'us'}`;
+    const noteText = notes || `Nếu có câu hỏi về báo giá này, vui lòng liên hệ ${companyInfo?.phone || 'chúng tôi'}`;
     const noteLines = doc.splitTextToSize(noteText, 90);
-    doc.text('Note:', margin, y);
-    doc.text(noteLines, margin + 15, y);
+    doc.text('Ghi chú:', margin, y);
+    doc.text(noteLines, margin + 18, y);
     y += noteLines.length * 4 + 5;
   }
 
@@ -476,24 +494,24 @@ function drawFooter(
 
   // Sub Total
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(50, 50, 50);
-  doc.text('Sub Total:', rightColX, y);
-  doc.text(`${currencySymbol}${summary.subtotal.toFixed(2)}`, rightColX + 65, y, { align: 'right' });
+  doc.text('Tạm tính:', rightColX, y);
+  doc.text(formatVND(summary.subtotal), rightColX + 65, y, { align: 'right' });
   y += 6;
 
   // Tax
-  doc.text('Tax (10%):', rightColX, y);
-  doc.text(`${currencySymbol}${summary.tax.toFixed(2)}`, rightColX + 65, y, { align: 'right' });
+  doc.text('Thuế (10%):', rightColX, y);
+  doc.text(formatVND(summary.tax), rightColX + 65, y, { align: 'right' });
   y += 6;
 
   // Total
   const blue = hexToRgb(PRIMARY_BLUE);
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'normal');
   doc.setTextColor(blue.r, blue.g, blue.b);
-  doc.text('Total:', rightColX, y);
-  doc.text(`${currencySymbol}${summary.total.toFixed(2)}`, rightColX + 65, y, { align: 'right' });
+  doc.text('Tổng cộng:', rightColX, y);
+  doc.text(formatVND(summary.total), rightColX + 65, y, { align: 'right' });
 
   return y + 10;
 }

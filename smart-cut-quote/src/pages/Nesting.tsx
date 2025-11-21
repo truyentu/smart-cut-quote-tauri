@@ -4,7 +4,7 @@
  * Based on IMPLEMENTATION_PLAN.md section 8.5
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -24,19 +24,57 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useQuoteStore } from '../stores/quoteStore';
 import { runNestingWorkflow } from '../services/nestingService';
+import { getNestingSettings, saveNestingSettings } from '../services/database';
 import SvgViewer from '../components/Viewer/SvgViewer';
 
 export default function Nesting() {
   const navigate = useNavigate();
   const files = useQuoteStore((state) => state.files);
+  const nestingSvgUrl = useQuoteStore((state) => state.nestingSvgUrl);
+  const nestingResult = useQuoteStore((state) => state.nestingResult);
   const setNestingResult = useQuoteStore((state) => state.setNestingResult);
 
   const [loading, setLoading] = useState(false);
-  const [svgPath, setSvgPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stripHeight, setStripHeight] = useState<number>(6000);
   const [partSpacing, setPartSpacing] = useState<number>(5);
   const [timeLimit, setTimeLimit] = useState<number>(60);
+
+  // Load nesting settings from database on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getNestingSettings();
+        setStripHeight(settings.stripHeight);
+        setPartSpacing(settings.partSpacing);
+        setTimeLimit(settings.timeLimit);
+        console.log('Loaded nesting settings:', settings);
+      } catch (err) {
+        console.error('Failed to load nesting settings:', err);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  // Restore previous nesting result when component mounts
+  useEffect(() => {
+    if (nestingResult && nestingSvgUrl) {
+      console.log('✅ Restored nesting result from Part Library cache');
+      console.log(`   Utilization: ${(nestingResult.utilization * 100).toFixed(1)}%`);
+      console.log(`   Items placed: ${nestingResult.itemsPlaced}`);
+      console.log(`   Strip: ${nestingResult.stripWidth.toFixed(1)} x ${nestingResult.stripHeight.toFixed(1)}mm`);
+    }
+  }, [nestingResult, nestingSvgUrl]);
+
+  // Save settings to database when they change (with debounce)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      saveNestingSettings({ stripHeight, partSpacing, timeLimit })
+        .then(() => console.log('Saved nesting settings'))
+        .catch((err) => console.error('Failed to save nesting settings:', err));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [stripHeight, partSpacing, timeLimit]);
 
   const handleStartNesting = async () => {
     if (files.length === 0) {
@@ -46,15 +84,15 @@ export default function Nesting() {
 
     setLoading(true);
     setError(null);
-    setSvgPath(null);
+    // Clear old result when starting new nesting
+    setNestingResult(null, null);
 
     try {
       const result = await runNestingWorkflow(files, stripHeight, partSpacing, timeLimit);
 
       if (result.success && result.data && result.svgUrl) {
-        // Save result to store
-        setNestingResult(result.data);
-        setSvgPath(result.svgUrl);
+        // Save result to store (both result and svgUrl)
+        setNestingResult(result.data, result.svgUrl);
         setError(null);
       } else {
         setError(result.error || 'Nesting failed with unknown error');
@@ -131,6 +169,13 @@ export default function Nesting() {
             helperText="Lower = faster, higher = better optimization"
           />
 
+          {nestingResult && nestingSvgUrl && (
+            <Alert severity="success" sx={{ mb: 1 }}>
+              ✅ Nesting result loaded from Part Library ({(nestingResult.utilization * 100).toFixed(1)}% utilization).
+              You can use it or recalculate with different parameters.
+            </Alert>
+          )}
+
           <Button
             variant="contained"
             color="primary"
@@ -139,7 +184,7 @@ export default function Nesting() {
             disabled={loading}
             startIcon={loading ? <CircularProgress size={20} /> : <PlayArrowIcon />}
           >
-            {loading ? 'Processing...' : 'Start Nesting'}
+            {loading ? 'Processing...' : (nestingResult ? 'Recalculate with Current Parameters' : 'Start Nesting')}
           </Button>
 
           {error && (
@@ -170,7 +215,7 @@ export default function Nesting() {
           <Typography variant="h6" gutterBottom>
             Nesting Result
           </Typography>
-          <SvgViewer svgPath={svgPath || ''} />
+          <SvgViewer svgPath={nestingSvgUrl || ''} />
         </Paper>
       </Box>
 
@@ -179,7 +224,7 @@ export default function Nesting() {
         <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={handleBack}>
           Back to Config
         </Button>
-        {svgPath && (
+        {nestingSvgUrl && (
           <Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={handleNext}>
             Next: Summary
           </Button>

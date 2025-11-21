@@ -26,6 +26,9 @@ export interface SavedQuote {
   nestingResult?: NestingResult;
   summary?: QuoteSummary;
   status: 'draft' | 'sent' | 'accepted' | 'rejected';
+  productionStatus?: 'in_production' | 'completed' | null;
+  productionStartedAt?: Date;
+  productionCompletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
   validUntil?: Date;
@@ -71,7 +74,7 @@ export async function saveQuote(
   const quoteInput: QuoteInput = {
     quote_number: quoteNumber,
     client_id: client.id,
-    status: 'draft',
+    status: 'sent', // Changed from 'draft' to 'sent' when saving quote
     validity_days: validity,
     price_markup: settings.default_price_markup,
     material_markup: settings.default_material_markup,
@@ -102,7 +105,7 @@ export async function saveQuote(
     files,
     nestingResult,
     summary,
-    status: 'draft',
+    status: 'sent',
     createdAt: new Date(),
     updatedAt: new Date(),
     validUntil,
@@ -218,6 +221,9 @@ function convertDbQuoteToSavedQuote(dbQuote: DbQuote): SavedQuote {
     nestingResult: dataBlob.nestingResult,
     summary: dataBlob.summary,
     status: dbQuote.status as SavedQuote['status'],
+    productionStatus: (dbQuote.production_status as 'in_production' | 'completed') || null,
+    productionStartedAt: dbQuote.production_started_at ? new Date(dbQuote.production_started_at) : undefined,
+    productionCompletedAt: dbQuote.production_completed_at ? new Date(dbQuote.production_completed_at) : undefined,
     createdAt: dbQuote.created_at ? new Date(dbQuote.created_at) : new Date(),
     updatedAt: dbQuote.updated_at ? new Date(dbQuote.updated_at) : new Date(),
     validUntil: dbQuote.validity_days

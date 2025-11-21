@@ -11,14 +11,13 @@ import {
   ListItemIcon,
   ListItemText,
   Toolbar,
-  Divider
+  Divider,
+  Typography,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import HealingIcon from '@mui/icons-material/Healing';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import GridOnIcon from '@mui/icons-material/GridOn';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuoteStore } from '../../stores/quoteStore';
@@ -26,11 +25,9 @@ import { useQuoteStore } from '../../stores/quoteStore';
 const menuItems = [
   { id: 0, label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { id: 1, label: 'File Upload', icon: <UploadFileIcon />, path: '/upload' },
-  { id: 2, label: 'File Healing', icon: <HealingIcon />, path: '/healing' },
-  { id: 3, label: 'Part Library', icon: <LibraryBooksIcon />, path: '/library' },
-  { id: 4, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
-  { id: 5, label: 'PDF Export', icon: <PictureAsPdfIcon />, path: '/export' },
-  { id: 6, label: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+  { id: 2, label: 'Part Library', icon: <LibraryBooksIcon />, path: '/library' },
+  { id: 3, label: 'Nesting', icon: <GridOnIcon />, path: '/nesting' },
+  { id: 4, label: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];
 
 export default function Sidebar() {
@@ -44,7 +41,27 @@ export default function Sidebar() {
 
   return (
     <Box sx={{ overflow: 'auto' }}>
-      <Toolbar /> {/* Spacer for AppBar */}
+      {/* Logo Box - Top Left Corner */}
+      <Box
+        sx={{
+          bgcolor: '#c62828',
+          color: 'white',
+          p: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 80,
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 'bold', textAlign: 'center', lineHeight: 1.2 }}>
+          SmartCut
+        </Typography>
+        <Typography variant="caption" sx={{ fontStyle: 'italic', textAlign: 'center', mt: 0.5 }}>
+          A product of T2N Group
+        </Typography>
+      </Box>
+
       <Divider />
       <List>
         {menuItems.map((item) => (
